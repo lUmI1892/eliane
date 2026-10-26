@@ -1,0 +1,38 @@
+SISTEMA ELIANNE - COPIA PARA OTRA COMPUTADORA
+Version del programa: 23/10/2026
+
+IMPORTANTE: ESTE PAQUETE NO INCLUYE LOS REGISTROS DEL NAVEGADOR.
+Los productos, fotos, eventos e historiales necesitan un Respaldo completo JSON
+exportado desde la computadora donde estan registrados. No usar los archivos de
+prueba de desarrollo como datos del negocio.
+
+PARA UTILIZARLO EN CASA
+1. Descargar el ZIP desde Drive y extraer la carpeta completa en el disco local
+   que prefieras. No abrir el programa desde dentro del ZIP ni desde la vista
+   previa de Drive: es una aplicacion local, no una pagina alojada en Drive.
+2. Abrir inventario-elianne.html con un navegador. En Windows tambien puedes
+   usar abrir-inventario.cmd. No hace falta instalar dependencias para usarlo.
+3. Descargar aparte el JSON de Respaldo completo que hayas exportado desde el
+   sistema original. En la computadora de casa, pulsar Restaurar y elegir ese JSON.
+4. Comprobar productos, fotos y eventos antes de continuar. Para los siguientes
+   usos, mantener el mismo archivo/ruta y navegador/perfil en esa computadora.
+
+CAMBIOS ENTRE CASA Y OFICINA
+Drive guarda copias de archivos; NO sincroniza automaticamente los registros
+de los navegadores. No combinar ediciones simultaneas en dos computadoras.
+Al terminar en una computadora, descargar Respaldo completo y subir ese JSON
+a la carpeta de Drive. En la otra, descargar el mas reciente y restaurarlo antes
+de trabajar. Conservar una copia del respaldo anterior: Restaurar reemplaza los
+datos locales, no mezcla dos respaldos. Copiar solamente el HTML no lleva datos.
+No borrar el perfil ni los datos del navegador sin tener un respaldo verificado.
+
+PARA CONTINUAR EL DESARROLLO
+La carpeta desarrollo contiene las fuentes y pruebas de esta misma version.
+En una computadora con Node.js, ejecutar node build.cjs dentro de desarrollo
+genera inventario-elianne.verificado.html. Las pruebas de navegador utilizan
+rutas de herramientas de la computadora original; deben ajustarse para casa.
+El HTML de la raiz es el programa listo para usar, no la plantilla de desarrollo.
+Antes de reemplazarlo por una version nueva, conservar programa y respaldo JSON.
+
+Incluye la ficha editable desde el calendario, inventario, tres salones,
+historial por evento, alquiler externo y reportes. Finanzas no esta implementado.

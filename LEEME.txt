@@ -1,0 +1,201 @@
+INVENTARIO ELIANNE - CONTROL DE INVENTARIO Y EVENTOS
+
+Abrir inventario-elianne.html o abrir-inventario.cmd desde esta carpeta.
+Funciona sin instalar programas y sin conexion a Internet.
+Los datos y fotos se guardan en el navegador de esta computadora.
+La carpeta del programa no contiene los registros del navegador.
+
+AGENDA Y NAVEGACION
+La pantalla inicial es Agenda. Inventario tiene su propia pestaña.
+El calendario mensual muestra eventos en su Fecha del evento, separada de la
+salida y devolucion del material. Los registros anteriores usan su fecha de salida
+como fecha inicial del evento; puede corregirse al editar cotizaciones o reservas.
+Las reservas y eventos en curso se marcan como fechas con reserva.
+Las cotizaciones no son reservas confirmadas. Los cancelados no ocupan agenda.
+Tocar un dia muestra sus eventos. Agregar evento precarga la fecha elegida.
+Se pueden agendar eventos sin materiales y asignarlos despues al editar.
+El calendario distingue Elianne 1, Elianne 2 y Elianne 3. Sus nombres se pueden
+editar desde el boton Salones. Cada evento puede ocupar uno, dos o tres salones.
+Filtrar por salon permite ver su agenda. Los colores identifican los espacios.
+Elianne 1 es rojo, Elianne 2 verde y Elianne 3 azul. Las marcas numeradas de cada
+dia muestran todos los salones con eventos, incluso en celular y aunque solo se
+vean dos nombres de evento en la celda. Los eventos que usan varios salones
+muestran todos sus colores. Las cotizaciones usan contorno sin relleno; los
+eventos cancelados no aparecen. Un signo ? gris indica salon sin asignar.
+El color se conserva aunque se cambie el nombre del salon.
+Las cotizaciones no bloquean salones; las reservas confirmadas si los bloquean.
+Un evento puede reservarse por dia completo o por horario, con fecha de fin.
+Los dias completos incluyen todas las fechas elegidas. En horarios, la hora final
+no se solapa con otro evento que empiece justo en ese instante, salvo que haya
+montaje o limpieza que se crucen. Los minutos se incluyen en el bloqueo.
+Si el evento termina de madrugada, se debe indicar la fecha del dia siguiente.
+El calendario tambien marca los dias adicionales de montaje y limpieza.
+Devolver materiales no libera por adelantado el salon: su horario queda reservado.
+Los eventos anteriores sin salon asignado se conservan como pendientes. Asignar
+su salon desde Asignar salon. Mientras tanto, no se confirman nuevas reservas
+en su mismo periodo para evitar ocupar un espacio que podria estar comprometido.
+El inventario es compartido por los tres salones y se controla por periodos de dias.
+
+FICHA DEL EVENTO DESDE EL CALENDARIO
+En escritorio, tocar el nombre del evento dentro de una celda del calendario
+abre su ficha. Tocar el numero del dia muestra la lista de eventos de esa fecha.
+En celular, tocar el dia y luego Ver evento en la lista.
+La ficha reune fecha, salon, invitados, responsable, notas, materiales propios,
+alquileres externos, pendientes, documentos, salida/devolucion e historial.
+Editar evento abre el formulario dentro de la misma ficha. Guardar conserva
+la ficha abierta; Cancelar edicion descarta los cambios solo tras confirmarlos
+si ya se habia modificado el formulario.
+Los invitados y las notas del historial se registran tambien dentro de la ficha.
+Los alquileres y la asignacion de salon mantienen sus dialogos de gestion,
+sin navegar a otra pestaña. La devolucion propia se registra en la misma ficha.
+Volver conserva el dia, mes y filtros de la agenda. Se avisa antes de descartar
+una edicion o nota sin guardar. Los conteos parciales siguen pendientes de guardar
+y se conservan durante la navegacion como antes.
+No se permite editar materiales de eventos que ya salieron; los eventos cerrados
+o cancelados conservan sus bloqueos. Las validaciones de stock y salones siguen vigentes.
+Esta ficha reune las funciones actuales. No incorpora todavia pagos, ingresos,
+gastos generales ni calculo de ganancia; no muestra cifras financieras inventadas.
+
+INVITADOS E HISTORIAL POR EVENTO
+Cada evento permite registrar su cantidad de invitados. El boton Historial esta
+disponible desde Agenda, Eventos y Salida y devolucion.
+Al cambiar de 300 a 350 invitados queda registrado que se agregaron 50 personas,
+con fecha y responsable registrado. Tambien se conservan reducciones y notas
+del cliente sin cambiar la cantidad. Registrado por es un nombre ingresado,
+no una identidad autenticada por el sistema.
+Las ediciones del evento registran los campos modificados sin borrar su historial.
+Los eventos anteriores quedan con invitados sin definir hasta registrar el dato;
+no se inventan cantidades ni cambios del pasado.
+Los eventos cerrados o cancelados permiten notas, pero no cambiar invitados.
+El historial puede exportarse como CSV y se incluye en el respaldo completo.
+
+ALQUILER EXTERNO
+En Eventos, agregar la cantidad TOTAL necesaria del producto. Si faltan unidades,
+pulsar Alquiler externo junto al producto: precarga la cantidad que falta.
+Debajo de los materiales se registran cantidad externa, proveedor, costo TOTAL
+en Bs (no precio unitario), fechas y observaciones. Se admite costo sin definir.
+Guardar evento conserva el alquiler pendiente; no significa que este recibido.
+La cantidad propia reservada es el total solicitado menos el alquiler vigente.
+El material externo nunca se suma al stock propio ni queda disponible a otros eventos.
+Esta version registra un proveedor por producto dentro de cada evento.
+
+Despues de guardar, el boton Alquiler externo del evento abre su seguimiento:
+Pendiente -> Confirmado -> Recibido -> Devuelto al proveedor.
+Confirmar requiere proveedor. Marcar recibido confirma la recepcion de TODA la
+cantidad; no se registran recepciones parciales en esta version.
+El evento no puede salir mientras tenga alquileres pendientes o confirmados sin recibir.
+La entrega del proveedor debe ser a mas tardar en la salida prevista del material;
+la devolucion al proveedor debe ser igual o posterior al regreso previsto del evento.
+Las devoluciones normales del evento cuentan SOLO material propio. Una vez
+confirmado ese regreso, registrar por separado lo devuelto bueno y dañado al
+proveedor; el faltante externo se calcula. Estas bajas no afectan stock propio.
+El evento no se cierra con alquileres pendientes de devolver o cancelar.
+Cancelar un evento no cancela automaticamente el acuerdo con el proveedor:
+los alquileres pendientes siguen visibles para coordinar su cancelacion o regreso.
+Cancelar un alquiler de una reserva exige cubrir nuevamente el material propio;
+si no hay stock, editar la reserva y reasignar sus cantidades antes de cancelarlo.
+Los alquileres recibidos conservan su registro; no se borran al editar el evento.
+
+Alertas muestra alquileres por contratar, recibir, devolver y eventos cancelados
+con acuerdos pendientes. Los PDF y CSV separan material propio y externo.
+Reportes incluye Exportar alquileres CSV con los mismos filtros de eventos.
+Cada cambio queda en el historial con responsable registrado. El respaldo completo
+incluye proveedores, costos, cantidades, fechas, recepciones y devoluciones externas.
+El formato de respaldo ahora es version 4; admite importar respaldos version 3.
+Usar el archivo actual y recargar las pestañas antiguas: las versiones anteriores
+no pueden editar el formato nuevo, para evitar que borren los datos del alquiler.
+
+REPORTES
+El PDF de eventos tiene un resumen cronologico con fecha, evento, salon, invitados
+y estado. Desde Reportes se filtra por fecha del evento, salon y estado.
+Incluir ficha de cada evento agrega hojas separadas con datos y materiales;
+desmarcar esa opcion genera solo el resumen. El CSV usa los mismos filtros.
+PDF entrega muestra materiales asignados, sin mezclar conteos de devolucion.
+PDF devolucion distingue conteo provisional de devolucion confirmada; lo que
+falta revisar no se presenta como perdida confirmada. Solo incluye conteos
+guardados; un formulario sin guardar no cambia el informe.
+Las fechas se muestran como dia/mes/año. Datos inusuales o conteos inconsistentes
+se señalan para revision sin modificar registros automaticamente.
+El inventario valorizado muestra costo y valor de reposicion, no ganancias.
+Los PDF incluyen tablas, encabezados repetidos y numeracion de paginas.
+
+RESPALDOS
+Respaldo completo descarga productos, fotos, eventos, salones, horarios, estados,
+costos e historial.
+Guarda una copia del archivo JSON en otra unidad de forma regular.
+Restaurar valida el archivo antes de reemplazar datos y descarga una copia previa.
+Los respaldos antiguos con solo productos se aceptan si conservan las referencias
+de todos los eventos actuales. No se eliminan eventos por importar un respaldo antiguo.
+
+MIGRACION
+Al abrir la nueva version se leen los registros anteriores del mismo archivo y navegador.
+Se migra automaticamente a una base IndexedDB de mayor capacidad en el navegador.
+Antes de retirar duplicados del almacenamiento pequeño se guarda y verifica una
+copia exacta de los registros anteriores dentro de la nueva base local.
+Se conserva el registro mas reciente de elianneSalon.v3 cuando existe.
+La migracion es transaccional: si falla, los datos originales no se retiran.
+Los eventos ya devueltos o cerrados antes de esta version NO generan bajas retroactivas.
+Si esos registros requieren corregir stock, usar Movimientos con motivo y responsable.
+El historial comienza con el saldo existente al actualizar; no inventa movimientos previos.
+
+DISPONIBILIDAD
+La fecha de salida y la devolucion prevista forman un periodo inclusivo por dias.
+Un producto no se reutiliza el mismo dia de devolucion en otra reserva.
+Las reservas de dias distintos pueden reutilizar el mismo inventario.
+Una devolucion vencida de un evento en curso sigue bloqueando sus productos.
+La salida tambien verifica el material que sigue fuera de otros eventos.
+
+DEVOLUCIONES
+Regreso bueno: unidades recibidas utilizables, sin incluir las dañadas.
+Dañado: unidades recibidas que deben retirarse del stock utilizable.
+Falta: se calcula como salida menos regreso bueno menos dañado.
+Guardar conteo conserva un avance sin liberar stock. Debe pulsarse para conservarlo.
+Confirmar devolucion registra daños y faltantes una sola vez y libera el material bueno.
+Una devolucion confirmada no se vuelve a editar. Registrar correcciones mediante
+Movimientos con su motivo y responsable. Una reparacion o recuperacion incorpora
+unidades al stock utilizable cuando corresponda.
+
+MOVIMIENTOS
+Las cantidades de productos existentes cambian mediante Movimientos.
+Permite compras, reparaciones, recuperaciones, bajas y correcciones de entrada/salida.
+No permite bajas manuales que dejen reservas activas sin unidades suficientes.
+No permite eliminar productos vinculados a eventos; su historial permanece.
+
+ALMACENAMIENTO
+Las fotos y registros se guardan en IndexedDB, no en el espacio pequeño de
+localStorage. No se necesita borrar fotos para liberar ese limite anterior.
+La base sigue dentro del perfil del navegador; no esta en la carpeta del programa.
+Se debe seguir descargando Respaldo completo para tener una copia independiente.
+Un guardado solo se confirma cuando termina la transaccion de la base local.
+Durante el guardado se bloquean temporalmente los campos para evitar dobles envios.
+Si falla un guardado no se cambia el estado confirmado ni se pierde el formulario.
+Ante espacio lleno o bloqueo del navegador se muestra un aviso. Descargar respaldo.
+Si otra pestaña guarda cambios, recargar antes de seguir para evitar sobrescribirlos.
+Trabajar con una sola pestaña del sistema a la vez.
+El sistema sigue siendo local: no tiene usuarios ni sincronizacion entre dispositivos.
+
+VERIFICACION
+56 pruebas de logica y recorridos de navegador con datos aislados.
+Se verificaron cambios de invitados, notas, responsables, historial independiente
+por evento, guardados fallidos sin cambios fantasma, exportacion y restauracion.
+Tambien se reprodujo el error de cuota de la version anterior y se verificaron
+migracion con cuota llena, mas de 6 MB de registros, fotos despues de recargar,
+respaldo completo, fallos de transaccion, permisos bloqueados y conflicto entre pestañas.
+Se verificaron migracion, respaldo/restauracion, reservas por periodos,
+devoluciones invalidas/parciales/finales, descuentos unicos, fallos de almacenamiento,
+movimientos, formularios, archivos XLSX/PDF/CSV y vistas de escritorio/celular.
+Esto no sustituye revisar los conteos fisicos y las reservas del salon.
+Se probaron tambien filtros de reportes, fichas de entrega/devolucion, informes
+sin eventos y multiples paginas con nombres y observaciones largos. Se revisaron
+los PDF renderizados y se comprobaron margenes y columnas sin superposiciones.
+Se verificaron faltantes cubiertos por alquiler, recepcion obligatoria antes de
+salir, stock propio independiente, devolucion al proveedor con daños/faltantes,
+errores de guardado, cierre protegido, respaldos y formularios de celular.
+El codigo de desarrollo y las pruebas se conservan en desarrollo/.
+Tambien se verificaron apertura directa desde el calendario, edicion dentro de
+la ficha, cambios sin guardar, conflictos de salon, guardados fallidos, historial
+en linea, alquileres, devoluciones, documentos, restauracion con ficha abierta,
+aislamiento entre eventos y distribucion en escritorio/celular.
+Se verificaron los colores de los tres salones, reservas simultaneas, eventos
+combinados, cotizaciones, salones sin asignar, filtros, montaje previo y marcas
+sin superposiciones en escritorio, tableta y celular.

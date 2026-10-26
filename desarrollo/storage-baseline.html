@@ -1,0 +1,1781 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salon Elianne</title>
+    <style>
+      :root {
+        --bg: #eef2f5;
+        --panel: #ffffff;
+        --panel-2: #f8fafb;
+        --ink: #17212b;
+        --muted: #65727d;
+        --line: #d8e0e6;
+        --accent: #0f766e;
+        --accent-2: #174ea6;
+        --danger: #b3261e;
+        --soft: #e6f3f1;
+        --shadow: 0 18px 46px rgba(23, 33, 43, 0.1);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      h1, h2, h3, p { margin: 0; }
+
+      .app {
+        width: min(1380px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 24px 0 44px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        padding-bottom: 18px;
+      }
+
+      h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1; letter-spacing: 0; }
+      .subtitle { margin-top: 8px; color: var(--muted); font-size: 15px; }
+
+      .actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+      .btn {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--ink);
+        padding: 9px 13px;
+        font-weight: 750;
+      }
+      .btn.primary { border-color: var(--accent); background: var(--accent); color: white; }
+      .btn.blue { border-color: var(--accent-2); background: var(--accent-2); color: white; }
+      .btn.danger { border-color: #f1cbc8; background: #fff4f3; color: var(--danger); }
+      .btn:hover { filter: brightness(0.98); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+      }
+      .stat span { color: var(--muted); font-size: 13px; font-weight: 750; }
+      .stat strong { display: block; margin-top: 6px; font-size: 28px; line-height: 1; }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+      .panel-head {
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .panel-head h2 { font-size: 18px; }
+      .panel-head p { color: var(--muted); font-size: 14px; margin-top: 5px; }
+      .form { display: grid; gap: 13px; padding: 16px; }
+
+      label { color: var(--muted); font-size: 13px; font-weight: 800; }
+      .field { display: grid; gap: 7px; }
+      input, select, textarea {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--ink);
+        padding: 9px 11px;
+        outline: none;
+      }
+      textarea { min-height: 82px; resize: vertical; line-height: 1.5; }
+      input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14); }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+      .photo-box {
+        position: relative;
+        overflow: hidden;
+        min-height: 235px;
+        border: 1px dashed #a8b6bf;
+        border-radius: 8px;
+        background: var(--panel-2);
+        display: grid;
+        place-items: center;
+        text-align: center;
+      }
+      .photo-box input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+      .photo-preview {
+        width: 100%;
+        height: 235px;
+        object-fit: cover;
+        display: none;
+      }
+      .photo-empty { padding: 18px; color: var(--muted); }
+      .photo-empty strong { display: block; color: var(--ink); margin-bottom: 7px; }
+      .photo-tools { display: none; gap: 8px; }
+
+      .list-tools {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 190px 150px;
+        gap: 10px;
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .inventory-list { padding: 16px; display: grid; gap: 10px; }
+      .empty {
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 28px;
+        color: var(--muted);
+        text-align: center;
+        background: var(--panel-2);
+      }
+
+      .item {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-2);
+        padding: 10px;
+      }
+      .thumb {
+        width: 92px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #e4e9ed;
+        border: 1px solid var(--line);
+      }
+      .item h3 { font-size: 17px; margin-bottom: 4px; }
+      .meta { display: flex; flex-wrap: wrap; gap: 7px; color: var(--muted); font-size: 13px; }
+      .pill { background: white; border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; }
+      .qty { color: var(--accent); font-weight: 850; }
+      .item-actions { display: flex; gap: 7px; }
+      .small { min-height: 36px; padding: 7px 10px; font-size: 13px; }
+
+      .notice {
+        margin-top: 12px;
+        padding: 11px 12px;
+        border-radius: 8px;
+        border: 1px solid #cce8e3;
+        background: var(--soft);
+        color: #16433f;
+        font-size: 14px;
+        display: none;
+      }
+
+      #printArea { display: none; }
+
+      @media (max-width: 920px) {
+        .topbar { align-items: stretch; flex-direction: column; }
+        .actions { justify-content: flex-start; }
+        .stats { grid-template-columns: repeat(2, 1fr); }
+        .layout { grid-template-columns: 1fr; }
+        .list-tools { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 560px) {
+        .app { width: min(100% - 18px, 1380px); padding-top: 14px; }
+        .row, .stats { grid-template-columns: 1fr; }
+        .item { grid-template-columns: 76px minmax(0, 1fr); }
+        .thumb { width: 76px; }
+        .item-actions { grid-column: 1 / -1; justify-content: flex-end; }
+      }
+
+      @media print {
+        body { background: white; }
+        .app { display: none; }
+        #printArea { display: block; color: #111; font-family: Arial, sans-serif; }
+        .print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+        .print-header h1 { font-size: 25px; }
+        .print-header p { font-size: 12px; color: #333; margin-top: 3px; }
+        .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .print-table th, .print-table td { border: 1px solid #777; padding: 6px; vertical-align: top; }
+        .print-table th { background: #eee; text-align: left; }
+        .print-photo { width: 58px; height: 58px; object-fit: cover; }
+        @page { size: A4; margin: 10mm; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>Salon Elianne</h1>
+          <p class="subtitle">Administracion de eventos</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="backupBtn" type="button">Respaldo completo</button>
+          <label class="btn" for="restoreInput">Restaurar</label>
+          <input id="restoreInput" type="file" accept="application/json" hidden />
+          <button class="btn blue" id="excelBtn" type="button">Exportar Excel .xlsx</button>
+          <button class="btn primary" id="pdfBtn" type="button">Descargar PDF</button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Resumen del inventario">
+        <div class="stat"><span>Productos</span><strong id="statProducts">0</strong></div>
+        <div class="stat"><span>Unidades</span><strong id="statUnits">0</strong></div>
+        <div class="stat"><span>Categorias</span><strong id="statCategories">0</strong></div>
+        <div class="stat"><span>Ultima edicion</span><strong id="statDate">-</strong></div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel">
+          <div class="panel-head">
+            <h2 id="formTitle">Nuevo producto</h2>
+            <p>Sube la foto y completa los datos principales.</p>
+          </div>
+          <form class="form" id="productForm">
+            <div class="field">
+              <label>Foto del producto</label>
+              <div class="photo-box" id="photoBox">
+                <img class="photo-preview" id="photoPreview" alt="Vista previa del producto" />
+                <div class="photo-empty" id="photoEmpty"><strong>Seleccionar foto</strong><span>JPG, PNG o foto del celular. Se reduce automaticamente para ahorrar espacio.</span></div>
+                <input id="photoInput" type="file" accept="image/*" />
+              </div>
+              <div class="photo-tools" id="photoTools"><button class="btn small" id="removePhotoBtn" type="button">Quitar foto</button></div>
+            </div>
+
+            <div class="field">
+              <label for="nameInput">Nombre del producto</label>
+              <input id="nameInput" autocomplete="off" required placeholder="Ej: Plato base dorado" />
+            </div>
+
+            <div class="row">
+              <div class="field">
+              <label for="qtyInput">Cantidad utilizable</label>
+                <input id="qtyInput" type="number" min="0" step="1" required placeholder="0" />
+              </div>
+              <div class="field">
+                <label for="unitInput">Unidad</label>
+                <select id="unitInput">
+                  <option>unidades</option>
+                  <option>juegos</option>
+                  <option>cajas</option>
+                  <option>paquetes</option>
+                  <option>metros</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="codeInput">Codigo</label>
+                <input id="codeInput" autocomplete="off" placeholder="Ej: VAJ-001" />
+              </div>
+              <div class="field">
+                <label for="categoryInput">Categoria</label>
+                <input id="categoryInput" list="categoryOptions" autocomplete="off" placeholder="Ej: Vajilla" />
+                <datalist id="categoryOptions">
+                  <option value="Vajilla"></option>
+                  <option value="Cristaleria"></option>
+                  <option value="Cubiertos"></option>
+                  <option value="Manteleria"></option>
+                  <option value="Decoracion"></option>
+                  <option value="Mobiliario"></option>
+                  <option value="Cocina"></option>
+                  <option value="Otros"></option>
+                </datalist>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="locationInput">Ubicacion</label>
+              <input id="locationInput" autocomplete="off" placeholder="Ej: Deposito A, estante 2" />
+            </div>
+
+            <div class="field">
+              <label for="notesInput">Notas</label>
+              <textarea id="notesInput" placeholder="Color, estado, observaciones o medidas."></textarea>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" type="submit" id="saveBtn">Guardar producto</button>
+              <button class="btn" type="button" id="clearBtn">Limpiar</button>
+            </div>
+            <div class="notice" id="notice"></div>
+          </form>
+        </aside>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Productos cargados</h2>
+            <p>Busca, filtra y corrige el inventario antes de exportar.</p>
+          </div>
+          <div class="list-tools">
+            <input id="searchInput" type="search" placeholder="Buscar por nombre, codigo o nota" />
+            <select id="filterInput"><option value="">Todas las categorias</option></select>
+            <select id="sortInput">
+              <option value="recent">Mas recientes</option>
+              <option value="name">Nombre A-Z</option>
+              <option value="category">Categoria</option>
+              <option value="quantity">Mayor cantidad</option>
+            </select>
+          </div>
+          <div class="inventory-list" id="inventoryList"></div>
+        </section>
+      </section>
+    </main>
+
+    <section id="printArea"></section>
+
+    <script>/* The entire business state is persisted in one write, including its audit trail. */
+(() => {
+  'use strict';
+  const KEY = 'elianneSalon.v3';
+  const LEGACY = ['elianneInventory.v1', 'elianneSalonEvents.v1', 'elianneSalonExtras.v1'];
+  const statuses = ['cotizacion', 'reservado', 'en-evento', 'devuelto', 'cerrado', 'cancelado'];
+  const productStatuses = ['disponible', 'limpieza', 'mantenimiento', 'danado', 'baja'];
+  const active = e => ['reservado', 'en-evento'].includes(e.status);
+  const occupiesHall = e => ['reservado', 'en-evento', 'devuelto', 'cerrado'].includes(e.status);
+  const DEFAULT_HALLS = [{id:'hall-1',name:'Elianne 1'},{id:'hall-2',name:'Elianne 2'},{id:'hall-3',name:'Elianne 3'}];
+  const clone = v => JSON.parse(JSON.stringify(v));
+  const uid = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  const today = () => {
+    const d = new Date();
+    return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  };
+  const fail = message => { throw new Error(message); };
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const text = (v, label = 'Texto') => {
+    if (v == null) return '';
+    if (typeof v !== 'string' || v.length > 10000) fail(label + ' invalido.');
+    return v.trim();
+  };
+  const id = v => {
+    if (typeof v !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(v)) fail('Identificador invalido en los datos.');
+    return v;
+  };
+  function quantity(v, label = 'Cantidad') {
+    if (v === '' || v == null || !['number', 'string'].includes(typeof v) || (typeof v === 'string' && !v.trim())) fail(label + ' es obligatoria.');
+    const n = Number(v);
+    if (!Number.isSafeInteger(n) || n < 0 || n > 100000000) fail(label + ' debe ser un entero entre 0 y 100000000.');
+    return n;
+  }
+  function amount(v) {
+    if (v === '' || v == null || !['number', 'string'].includes(typeof v)) fail('Costo invalido.');
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0 || n > 1e12) fail('Costo invalido.');
+    return n;
+  }
+  function date(v) {
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || !Number.isFinite(Date.parse(v)) || new Date(v).toISOString().slice(0, 10) !== v) fail('Fecha invalida.');
+    return v;
+  }
+  function photo(v) {
+    if (!v) return '';
+    if (typeof v !== 'string' || !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(v)) fail('La foto debe estar incluida en formato JPG o PNG.');
+    return v;
+  }
+  function normalizeHalls(halls = DEFAULT_HALLS) {
+    if(!Array.isArray(halls)||halls.length!==3)fail('Deben existir los tres salones.');
+    const result=DEFAULT_HALLS.map(h=>{
+      const found=halls.find(x=>obj(x)&&x.id===h.id),name=found?text(found.name):'';
+      if(!name||name.length>60)fail('Cada salon necesita un nombre de hasta 60 caracteres.');
+      return {id:h.id,name};
+    });
+    if(new Set(result.map(h=>h.name.toLocaleLowerCase('es'))).size!==3)fail('Los nombres de los salones no pueden repetirse.');
+    return result;
+  }
+  function normalizeVenue(e,eventDate) {
+    const hallIds=e.hallIds??[];
+    if(!Array.isArray(hallIds)||hallIds.some(h=>!DEFAULT_HALLS.some(x=>x.id===h))||new Set(hallIds).size!==hallIds.length)fail('Seleccion de salones invalida.');
+    const venueMode=e.venueMode||'day',venueEndDate=date(e.venueEndDate||eventDate);
+    if(!['day','hours'].includes(venueMode)||venueEndDate<eventDate)fail('Revisa las fechas de ocupacion del salon.');
+    const clock=(value,label)=>{
+      if(typeof value!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value))fail(label+' invalida.');
+      return value;
+    };
+    const startTime=venueMode==='hours'?clock(e.startTime,'Hora de inicio'):'00:00';
+    const endTime=venueMode==='hours'?clock(e.endTime,'Hora de fin'):'00:00';
+    const setupMinutes=quantity(e.setupMinutes??0,'Montaje'),cleanupMinutes=quantity(e.cleanupMinutes??0,'Limpieza');
+    if(setupMinutes>2880||cleanupMinutes>2880)fail('Montaje y limpieza admiten hasta 2880 minutos cada uno.');
+    const schedule={hallIds:[...hallIds],venueMode,venueEndDate,startTime,endTime,setupMinutes,cleanupMinutes};
+    const span=venueRange({...schedule,eventDate});
+    if(span.eventEnd<=span.eventStart||span.eventEnd-span.eventStart>366*1440)fail('El fin debe ser posterior al inicio y el periodo no puede superar 366 dias. Para terminar de madrugada, elige la fecha del dia siguiente.');
+    return schedule;
+  }
+  function civilMinute(key,clock='00:00') {
+    const [y,m,d]=key.split('-').map(Number),[h,min]=clock.split(':').map(Number);
+    const value=new Date(0);value.setUTCFullYear(y,m-1,d);value.setUTCHours(h,min,0,0);
+    return value.getTime()/60000;
+  }
+  function venueRange(e) {
+    const start=civilMinute(e.eventDate||e.date,e.venueMode==='hours'?e.startTime:'00:00');
+    const end=civilMinute(e.venueEndDate||e.eventDate||e.date,e.venueMode==='hours'?e.endTime:'00:00')+(e.venueMode==='hours'?0:1440);
+    return {start:start-(e.setupMinutes||0),end:end+(e.cleanupMinutes||0),eventStart:start,eventEnd:end};
+  }
+  function hallConflicts(d,e) {
+    const span=venueRange(e),halls=e.hallIds||[];
+    return d.events.filter(other=>other.id!==e.id&&occupiesHall(other)&&(other.hallIds||[]).some(h=>halls.includes(h))).filter(other=>{
+      const existing=venueRange(other);return span.start<existing.end&&existing.start<span.end;
+    });
+  }
+  function checkHalls(d,e,ignoreUnassigned=false) {
+    if(!e.hallIds.length)fail('Selecciona al menos un salon para el evento.');
+    const conflict=hallConflicts(d,e)[0];
+    if(conflict){
+      const names=d.halls.filter(h=>e.hallIds.includes(h.id)&&conflict.hallIds.includes(h.id)).map(h=>h.name).join(', ');
+      fail(names+' ya esta reservado para "'+conflict.client+'" en ese periodo, incluyendo montaje y limpieza.');
+    }
+    const span=venueRange(e),pending=d.events.find(other=>other.id!==e.id&&occupiesHall(other)&&!other.hallIds.length&&(()=>{const range=venueRange(other);return span.start<range.end&&range.start<span.end;})());
+    if(pending&&!ignoreUnassigned)fail('El evento "'+pending.client+'" aun no tiene salon asignado en ese periodo. Asignale un salon antes de confirmar otra reserva.');
+  }
+  function normalizeProduct(p) {
+    if (!obj(p)) fail('Producto invalido.');
+    const name = text(p.name, 'Nombre');
+    if (!name) fail('El producto necesita un nombre.');
+    return { id: id(p.id), name, qty: quantity(p.qty), unit: text(p.unit) || 'unidades', code: text(p.code), category: text(p.category) || 'Otros', location: text(p.location), notes: text(p.notes), photo: photo(p.photo), updatedAt: Number(p.updatedAt) || Date.now() };
+  }
+  function normalizeEvent(e) {
+    if (!obj(e) || !Array.isArray(e.items) || !statuses.includes(e.status)) fail('Evento invalido.');
+    const client = text(e.client), start = date(e.date), end = date(e.returnDate || e.date), eventDate = date(e.eventDate || e.date);
+    if (!client || end < start) fail('Revisa el nombre y las fechas del evento.');
+    const seen = new Set();
+    const items = e.items.map(i => {
+      if (!obj(i)) fail('Detalle de evento invalido.');
+      const pid = id(i.productId);
+      if (seen.has(pid)) fail('Hay productos repetidos en un evento.');
+      seen.add(pid);
+      const qty = quantity(i.qty);
+      if (!qty) fail('La cantidad de salida debe ser mayor a cero.');
+      return { productId: pid, qty, returned: quantity(i.returned ?? 0), damaged: quantity(i.damaged ?? 0), missing: quantity(i.missing ?? 0) };
+    });
+    return { id: id(e.id), client, eventDate, ...normalizeVenue(e,eventDate), date: start, returnDate: end, departureDate: e.departureDate ? date(e.departureDate) : '', type: text(e.type) || 'Otro', status: e.status, responsible: text(e.responsible), place: text(e.place), notes: text(e.notes), items, settledAt: Number(e.settledAt) || null, updatedAt: Number(e.updatedAt) || Date.now() };
+  }
+  function normalize(raw) {
+    if (!obj(raw) || raw.schemaVersion !== 3 || !Array.isArray(raw.items) || !Array.isArray(raw.events) || !obj(raw.extras) || !Array.isArray(raw.movements)) fail('El archivo no es un respaldo completo compatible.');
+    const d = { schemaVersion: 3, revision: quantity(raw.revision ?? 0), halls:normalizeHalls(raw.halls), items: raw.items.map(normalizeProduct), events: raw.events.map(normalizeEvent), extras: {}, movements: [] };
+    for (const collection of [d.items, d.events]) {
+      if (new Set(collection.map(v => v.id)).size !== collection.length) fail('El respaldo tiene identificadores repetidos.');
+    }
+    Object.entries(raw.extras).forEach(([pid, ex]) => {
+      id(pid);
+      if (!obj(ex) || !productStatuses.includes(ex.status)) fail('Estado de producto invalido.');
+      d.extras[pid] = { status: ex.status, minQty: quantity(ex.minQty ?? 0), cost: amount(ex.cost ?? 0) };
+    });
+    d.movements = raw.movements.map(m => {
+      if (!obj(m) || !Number.isFinite(m.at) || !Number.isSafeInteger(m.delta)) fail('Movimiento invalido.');
+      return { id: id(m.id), at: m.at, productId: m.productId ? id(m.productId) : '', productName: text(m.productName), eventId: m.eventId ? id(m.eventId) : '', eventName: text(m.eventName), type: text(m.type), delta: m.delta, balance: quantity(m.balance ?? 0), detail: text(m.detail), responsible: text(m.responsible) };
+    });
+    if (new Set(d.movements.map(m => m.id)).size !== d.movements.length) fail('Hay movimientos repetidos.');
+    return d;
+  }
+  let data, expected, blocked = '';
+  function movement(d, type, p, delta, detail, e, responsible = '') {
+    d.movements.unshift({ id: uid(), at: Date.now(), productId: p?.id || '', productName: p?.name || '', eventId: e?.id || '', eventName: e?.client || '', type, delta, balance: p?.qty || 0, detail, responsible: responsible || e?.responsible || '' });
+  }
+  function migrate() {
+    const read = (key, fallback) => {
+      const raw = localStorage.getItem(key);
+      return raw === null ? fallback : JSON.parse(raw);
+    };
+    const d = normalize({ schemaVersion: 3, items: read(LEGACY[0], []), events: read(LEGACY[1], []), extras: read(LEGACY[2], {}), movements: [] });
+    d.items.forEach(p => movement(d, 'saldo-inicial', p, p.qty, 'Saldo al iniciar el historial.'));
+    // Old completed events did not adjust stock. Preserve them without applying retrospective losses.
+    d.events.filter(e => ['devuelto', 'cerrado'].includes(e.status)).forEach(e => { e.settledAt = e.updatedAt; });
+    return d;
+  }
+  try {
+    expected = localStorage.getItem(KEY);
+    data = expected === null ? migrate() : normalize(JSON.parse(expected));
+  } catch (error) {
+    blocked = 'No se pudieron leer los datos guardados. No se sobrescribiran. ' + error.message;
+    data = { schemaVersion: 3, revision: 0, halls:clone(DEFAULT_HALLS), items: [], events: [], extras: {}, movements: [] };
+  }
+  function notify(message, error = false) {
+    let el = document.getElementById('systemNotice');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'systemNotice';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.className = error ? 'system-notice error' : 'system-notice';
+    el.hidden = false;
+    clearTimeout(notify.timer);
+    if (!error) notify.timer = setTimeout(() => { el.hidden = true; }, 6500);
+  }
+  function commit(action) {
+    if (blocked) fail(blocked);
+    if (localStorage.getItem(KEY) !== expected) fail('Los datos cambiaron en otra pestaña. Recarga esta pagina antes de continuar.');
+    const next = clone(data);
+    action(next);
+    next.revision = data.revision + 1;
+    const checked = normalize(next), raw = JSON.stringify(checked);
+    try { localStorage.setItem(KEY, raw); }
+    catch { fail('No se pudo guardar: el almacenamiento esta lleno o bloqueado. Conserva el formulario y descarga un respaldo antes de continuar.'); }
+    data = checked;
+    expected = raw;
+    window.dispatchEvent(new Event('elianne:change'));
+  }
+  const getExtra = (d, pid) => d.extras[pid] || { status: 'disponible', minQty: 0, cost: 0 };
+  function range(e) {
+    const departure = e.departureDate || today();
+    return [e.status === 'en-evento' && departure < e.date ? departure : e.date, e.status === 'en-evento' && e.returnDate < today() ? '9999-12-31' : (e.returnDate || e.date)];
+  }
+  function reserved(d, pid, start = today(), end = start, except = null) {
+    const points = [];
+    d.events.filter(e => active(e) && e.id !== except).forEach(e => {
+      const [a, b] = range(e), qty = e.items.find(i => i.productId === pid)?.qty || 0;
+      if (!qty || a > end || b < start) return;
+      points.push([a < start ? start : a, 0, qty], [b > end ? end : b, 1, -qty]);
+    });
+    points.sort((a, b) => a[0].localeCompare(b[0]) || a[1] - b[1]);
+    let current = 0, peak = 0;
+    points.forEach(([, , delta]) => { current += delta; peak = Math.max(peak, current); });
+    return peak;
+  }
+  function available(d, pid, start = today(), end = start, except = null) {
+    const p = d.items.find(p => p.id === pid);
+    if (!p || getExtra(d, pid).status !== 'disponible') return 0;
+    return Math.max(0, p.qty - reserved(d, pid, start, end, except));
+  }
+  function checkReservation(d, e) {
+    const [start, end] = range(e);
+    e.items.forEach(i => {
+      const p = d.items.find(p => p.id === i.productId);
+      if (!p) fail('El evento contiene un producto que ya no existe.');
+      const capacity = available(d, p.id, start, end, e.id);
+      if (i.qty > capacity) fail(p.name + ': solo hay ' + capacity + ' disponibles entre ' + start + ' y ' + end + '.');
+    });
+  }
+  function upsertProduct(payload) {
+    const p = normalizeProduct(payload);
+    commit(d => {
+      const old = d.items.find(x => x.id === p.id);
+      if (p.code && d.items.some(x => x.id !== p.id && x.code.toLocaleLowerCase() === p.code.toLocaleLowerCase())) fail('Ese codigo ya pertenece a otro producto.');
+      if (old && p.qty !== old.qty) fail('Usa Movimientos para cambiar la cantidad de un producto existente.');
+      if (old) d.items = d.items.map(x => x.id === p.id ? p : x);
+      else d.items.unshift(p);
+      movement(d, old ? 'edicion' : 'alta', p, old ? 0 : p.qty, old ? 'Datos del producto actualizados.' : 'Producto incorporado.');
+    });
+  }
+  function deleteProduct(pid) {
+    commit(d => {
+      const p = d.items.find(p => p.id === pid);
+      if (!p) fail('Producto no encontrado.');
+      if (d.events.some(e => e.items.some(i => i.productId === pid))) fail('Este producto tiene eventos asociados. Usa el estado Baja para conservar su historial.');
+      d.items = d.items.filter(p => p.id !== pid);
+      delete d.extras[pid];
+      movement(d, 'eliminacion', { ...p, qty: 0 }, -p.qty, 'Producto sin eventos eliminado.');
+    });
+  }
+  function saveExtra(pid, extra) {
+    commit(d => {
+      const p = d.items.find(p => p.id === pid);
+      if (!p) fail('Selecciona un producto.');
+      if (!productStatuses.includes(extra.status)) fail('Estado invalido.');
+      if (extra.status !== 'disponible' && d.events.some(e => active(e) && e.items.some(i => i.productId === pid))) fail('El producto tiene reservas activas. Reasigna o cancela esas reservas antes de bloquearlo.');
+      d.extras[pid] = { status: extra.status, minQty: quantity(extra.minQty), cost: amount(extra.cost) };
+      movement(d, 'estado-costo', p, 0, 'Estado: ' + extra.status + '; minimo: ' + extra.minQty + '; costo: Bs ' + extra.cost);
+    });
+  }
+  function saveEvent(payload) {
+    const e = normalizeEvent(payload);
+    if (!e.responsible) fail('Escribe el responsable del evento.');
+    if (e.items.length&&(e.eventDate < e.date || e.venueEndDate > e.returnDate)) fail('Las fechas del evento deben estar entre la salida y la devolucion del material.');
+    if(!e.hallIds.length)fail('Selecciona al menos un salon para el evento.');
+    commit(d => {
+      const old = d.events.find(x => x.id === e.id);
+      if (old && !['cotizacion', 'reservado'].includes(old.status)) fail('Solo puedes editar cotizaciones o reservas.');
+      if (!['cotizacion', 'reservado'].includes(e.status)) fail('Usa los botones de salida y devolucion para cambiar de estado.');
+      e.items.forEach(i => { if (!d.items.some(p => p.id === i.productId)) fail('Producto no encontrado.'); });
+      e.items.forEach(i => { i.returned = 0; i.damaged = 0; i.missing = 0; });
+      e.settledAt = null;
+      if (active(e)) {checkReservation(d, e);checkHalls(d,e);}
+      if (old) d.events = d.events.map(x => x.id === e.id ? e : x);
+      else d.events.unshift(e);
+      movement(d, old ? 'evento-editado' : 'evento-creado', null, 0, 'Estado: ' + e.status, e);
+    });
+  }
+  function transition(eventId, status) {
+    commit(d => {
+      const e = d.events.find(e => e.id === eventId);
+      if (!e) fail('Evento no encontrado.');
+      const allowed = { cotizacion: ['reservado', 'cancelado'], reservado: ['en-evento', 'cancelado'], 'en-evento': [], devuelto: ['cerrado'], cerrado: [], cancelado: [] };
+      if (!allowed[e.status].includes(status)) fail('Ese cambio de estado no esta permitido.');
+      if (['reservado', 'en-evento'].includes(status)) {
+        const proposed = { ...e, status, departureDate: status === 'en-evento' ? today() : '' };
+        checkReservation(d, proposed);
+        checkHalls(d,proposed);
+        if (status === 'en-evento') {
+          const start = e.date < today() ? e.date : today();
+          const end = e.returnDate < today() ? '9999-12-31' : e.returnDate;
+          e.items.forEach(i => {
+            const out = d.events.filter(other => other.id !== e.id && other.status === 'en-evento').reduce((sum, other) => sum + (other.items.find(j => j.productId === i.productId)?.qty || 0), 0);
+            if (out + i.qty > (d.items.find(p => p.id === i.productId)?.qty || 0)) fail('Hay productos que todavia no regresaron de otro evento.');
+          });
+          e.items.forEach(i => { if (i.qty > available(d, i.productId, start, end, e.id)) fail('No hay disponibilidad para realizar esta salida ahora.'); });
+          e.departureDate = today();
+        }
+      }
+      e.status = status;
+      e.updatedAt = Date.now();
+      movement(d, 'evento-' + status, null, 0, 'Cambio de estado.', e);
+      if (status === 'en-evento') e.items.forEach(i => movement(d, 'salida', d.items.find(p => p.id === i.productId), 0, 'Salen ' + i.qty + ' unidades.', e));
+    });
+  }
+  function counts(e, values) {
+    if (!Array.isArray(values) || values.length !== e.items.length) fail('Faltan productos en la devolucion.');
+    return e.items.map((i, index) => {
+      const v = values[index];
+      if (!obj(v) || v.productId !== i.productId) fail('El detalle de devolucion cambio. Recarga el evento.');
+      const returned = quantity(v.returned, 'Regreso bueno'), damaged = quantity(v.damaged, 'Dañado');
+      if (returned + damaged > i.qty) fail('Regreso bueno + dañado no puede superar las ' + i.qty + ' unidades que salieron.');
+      return { ...i, returned, damaged, missing: i.qty - returned - damaged };
+    });
+  }
+  function saveHalls(halls) {
+    const normalized=normalizeHalls(halls);
+    commit(d=>{d.halls=normalized;movement(d,'salones-configurados',null,0,normalized.map(h=>h.name).join(', '));});
+  }
+  function assignVenue(eventId,schedule) {
+    commit(d=>{
+      const e=d.events.find(e=>e.id===eventId);if(!e)fail('Evento no encontrado.');
+      Object.assign(e,normalizeVenue(schedule,e.eventDate));
+      if(!e.hallIds.length)fail('Selecciona al menos un salon.');
+      if(e.items.length&&e.venueEndDate>e.returnDate)fail('La ocupacion termina despues de la devolucion del material. Edita primero las fechas del evento.');
+      if(occupiesHall(e))checkHalls(d,e,true);
+      e.updatedAt=Date.now();movement(d,'salones-asignados',null,0,'Salones: '+d.halls.filter(h=>e.hallIds.includes(h.id)).map(h=>h.name).join(', '),e);
+    });
+  }
+  function saveReturn(eventId, values, finalize) {
+    commit(d => {
+      const e = d.events.find(e => e.id === eventId);
+      if (!e || e.status !== 'en-evento' || e.settledAt) fail('Solo se pueden registrar devoluciones de eventos en curso.');
+      e.items = counts(e, values);
+      if (finalize) {
+        e.items.forEach(i => {
+          const p = d.items.find(p => p.id === i.productId);
+          if (!p) fail('Falta un producto del inventario.');
+          const loss = i.damaged + i.missing;
+          if (loss > p.qty) fail('La baja supera el stock actual de ' + p.name + '. Revisa los movimientos.');
+          p.updatedAt = Date.now();
+          movement(d, 'devolucion', p, 0, 'Regresan en buen estado ' + i.returned + ' unidades.', e);
+          if (i.damaged) { p.qty -= i.damaged; movement(d, 'daño', p, -i.damaged, 'Unidades retiradas del stock utilizable por daño.', e); }
+          if (i.missing) { p.qty -= i.missing; movement(d, 'faltante', p, -i.missing, 'Unidades faltantes retiradas del stock utilizable.', e); }
+        });
+        e.settledAt = Date.now();
+        e.status = 'devuelto';
+      } else movement(d, 'conteo', null, 0, 'Conteo parcial guardado; el material sigue reservado.', e);
+      e.updatedAt = Date.now();
+    });
+  }
+  function adjust(pid, type, qty, reason, responsible) {
+    const n = quantity(qty);
+    if (!n) fail('La cantidad debe ser mayor a cero.');
+    if (!['compra', 'reparacion', 'recuperacion', 'baja', 'correccion-entrada', 'correccion-salida'].includes(type)) fail('Tipo de movimiento invalido.');
+    reason = text(reason); responsible = text(responsible);
+    if (!reason || !responsible) fail('Escribe el motivo y el responsable del movimiento.');
+    commit(d => {
+      const p = d.items.find(p => p.id === pid);
+      if (!p) fail('Selecciona un producto.');
+      const delta = ['baja', 'correccion-salida'].includes(type) ? -n : n;
+      const balance = p.qty + delta;
+      if (balance < 0 || balance > 100000000) fail('El saldo resultante no es valido.');
+      if (delta < 0 && d.events.some(e => active(e) && e.items.some(i => i.productId === pid) && reserved(d, pid, ...range(e)) > balance)) fail('La baja dejaria una reserva activa sin suficientes unidades. Reasigna esa reserva primero.');
+      p.qty = balance;
+      p.updatedAt = Date.now();
+      movement(d, type, p, delta, reason, null, responsible);
+    });
+  }
+  function prepareRestore(raw) {
+    if (Array.isArray(raw)) {
+      const imported = raw.map(p => normalizeProduct({ ...p, id: p.id || uid() }));
+      const d = clone(data);
+      if (d.events.some(e => e.items.some(i => !imported.some(p => p.id === i.productId)))) fail('Este respaldo antiguo dejaria eventos sin sus productos. Usa un respaldo completo.');
+      d.items = imported;
+      movement(d, 'restauracion-antigua', null, 0, 'Inventario de respaldo antiguo; se conservaron eventos y movimientos.');
+      return normalize(d);
+    }
+    return normalize(raw);
+  }
+  function restore(raw) {
+    const imported = normalize(raw);
+    commit(d => {
+      Object.assign(d, imported);
+      movement(d, 'restauracion', null, 0, 'Respaldo completo restaurado.');
+    });
+    window.dispatchEvent(new Event('elianne:restored'));
+  }
+  window.Elianne = { get: () => clone(data), today, uid, quantity, backup: () => ({ ...clone(data), exportedAt: new Date().toISOString(), application: 'Inventario Elianne' }), prepareRestore, restore, upsertProduct, deleteProduct, saveExtra, saveEvent, transition, saveReturn, adjust, notify, saveHalls, assignVenue, venueRange, occupiesHall,
+    hallConflicts:e=>clone(hallConflicts(data,e)),onVenueDay:(e,key)=>{const span=venueRange(e),start=civilMinute(key);return span.start<start+1440&&start<span.end;},
+    reserved: (pid, start, end, except) => reserved(data, pid, start, end, except), available: (pid, start, end, except) => available(data, pid, start, end, except), extra: pid => clone(getExtra(data, pid)), active, blocked: () => blocked };
+  window.addEventListener('storage', e => { if (e.key === KEY) notify('Los datos cambiaron en otra pestaña. Recarga antes de seguir editando.', true); });
+  if (blocked) setTimeout(() => notify(blocked, true), 0);
+})();
+</script>
+    <script>
+      const STORAGE_KEY = "elianneInventory.v1";
+      const state = { items: [], editingId: null, photo: "" };
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        form: $("productForm"), formTitle: $("formTitle"), photoInput: $("photoInput"), photoPreview: $("photoPreview"), photoEmpty: $("photoEmpty"), photoTools: $("photoTools"),
+        removePhotoBtn: $("removePhotoBtn"), name: $("nameInput"), qty: $("qtyInput"), unit: $("unitInput"), code: $("codeInput"), category: $("categoryInput"), location: $("locationInput"), notes: $("notesInput"),
+        list: $("inventoryList"), search: $("searchInput"), filter: $("filterInput"), sort: $("sortInput"), notice: $("notice"),
+        statProducts: $("statProducts"), statUnits: $("statUnits"), statCategories: $("statCategories"), statDate: $("statDate"), printArea: $("printArea")
+      };
+
+      function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+      function today() { return new Date().toLocaleDateString("es-BO", { year: "numeric", month: "2-digit", day: "2-digit" }); }
+      function clean(value) { return String(value || "").trim(); }
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+      }
+      function normalize(value) { return clean(value).toLocaleLowerCase("es"); }
+      function download(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+      function showNotice(text) {
+        els.notice.textContent = text;
+        els.notice.style.display = "block";
+        window.clearTimeout(showNotice.timer);
+        showNotice.timer = window.setTimeout(() => { els.notice.style.display = "none"; }, 2600);
+      }
+
+      function load() {
+        state.items = window.Elianne.get().items;
+      }
+      function save() {
+        load();
+        render();
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+              const maxSide = 900;
+              let { width, height } = img;
+              if (width > height && width > maxSide) { height = Math.round((height * maxSide) / width); width = maxSide; }
+              if (height >= width && height > maxSide) { width = Math.round((width * maxSide) / height); height = maxSide; }
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.82));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function updatePhotoPreview() {
+        if (state.photo) {
+          els.photoPreview.src = state.photo;
+          els.photoPreview.style.display = "block";
+          els.photoEmpty.style.display = "none";
+          els.photoTools.style.display = "flex";
+        } else {
+          els.photoPreview.removeAttribute("src");
+          els.photoPreview.style.display = "none";
+          els.photoEmpty.style.display = "block";
+          els.photoTools.style.display = "none";
+        }
+      }
+
+      function resetForm() {
+        state.editingId = null;
+        state.photo = "";
+        els.form.reset();
+        els.qty.readOnly = false;
+        els.qty.title = "";
+        els.unit.value = "unidades";
+        els.formTitle.textContent = "Nuevo producto";
+        $("saveBtn").textContent = "Guardar producto";
+        updatePhotoPreview();
+      }
+
+      function categories() {
+        return [...new Set(state.items.map((item) => clean(item.category)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      }
+
+      function filteredItems() {
+        const query = normalize(els.search.value);
+        const category = normalize(els.filter.value);
+        let items = state.items.filter((item) => {
+          const text = normalize([item.name, item.code, item.category, item.location, item.notes].join(" "));
+          return (!query || text.includes(query)) && (!category || normalize(item.category) === category);
+        });
+        const sort = els.sort.value;
+        items.sort((a, b) => {
+          if (sort === "name") return clean(a.name).localeCompare(clean(b.name), "es");
+          if (sort === "category") return clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es");
+          if (sort === "quantity") return Number(b.qty || 0) - Number(a.qty || 0);
+          return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
+        });
+        return items;
+      }
+
+      function renderFilters() {
+        const current = els.filter.value;
+        els.filter.innerHTML = '<option value="">Todas las categorias</option>' + categories().map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join("");
+        els.filter.value = current;
+      }
+
+      function renderStats() {
+        const totalUnits = state.items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+        els.statProducts.textContent = state.items.length;
+        els.statUnits.textContent = totalUnits;
+        els.statCategories.textContent = categories().length;
+        const last = state.items.reduce((max, item) => Math.max(max, Number(item.updatedAt || 0)), 0);
+        els.statDate.textContent = last ? new Date(last).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" }) : "-";
+      }
+
+      function placeholderSvg(name) {
+        const initials = escapeHtml(clean(name).slice(0, 2).toUpperCase() || "IE");
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#e6f3f1"/><text x="80" y="92" text-anchor="middle" font-size="42" font-family="Arial" font-weight="700" fill="#0f766e">${initials}</text></svg>`)}`;
+      }
+
+      function renderList() {
+        const items = filteredItems();
+        if (!items.length) {
+          els.list.innerHTML = `<div class="empty">Todavia no hay productos en esta vista. Carga el primero desde el formulario.</div>`;
+          return;
+        }
+        els.list.innerHTML = items.map((item) => `
+          <article class="item">
+            <img class="thumb" src="${item.photo || placeholderSvg(item.name)}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <h3>${escapeHtml(item.name)}</h3>
+              <div class="meta">
+                <span class="pill qty">${escapeHtml(item.qty)} ${escapeHtml(item.unit || "unidades")}</span>
+                <span class="pill">${escapeHtml(item.category || "Sin categoria")}</span>
+                <span class="pill">Codigo: ${escapeHtml(item.code || "-")}</span>
+                ${item.location ? `<span class="pill">${escapeHtml(item.location)}</span>` : ""}
+              </div>
+              ${item.notes ? `<p class="subtitle">${escapeHtml(item.notes)}</p>` : ""}
+            </div>
+            <div class="item-actions">
+              <button class="btn small" type="button" data-edit="${item.id}">Editar</button>
+              <button class="btn small danger" type="button" data-delete="${item.id}">Eliminar</button>
+            </div>
+          </article>`).join("");
+      }
+
+      function renderPrint() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        els.printArea.innerHTML = `
+          <div class="print-header">
+            <div><h1>Inventario Elianne</h1><p>Fecha: ${today()} | Productos: ${state.items.length}</p></div>
+            <div><p>Total unidades: ${state.items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</p><p>Categorias: ${categories().length}</p></div>
+          </div>
+          <table class="print-table">
+            <thead><tr><th>Foto</th><th>Producto</th><th>Codigo</th><th>Categoria</th><th>Cantidad</th><th>Ubicacion</th><th>Notas</th></tr></thead>
+            <tbody>${rows.map((item) => `<tr><td><img class="print-photo" src="${item.photo || placeholderSvg(item.name)}" /></td><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.code)}</td><td>${escapeHtml(item.category)}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${escapeHtml(item.location)}</td><td>${escapeHtml(item.notes)}</td></tr>`).join("")}</tbody>
+          </table>`;
+      }
+
+      function render() { renderFilters(); renderStats(); renderList(); renderPrint(); }
+
+      function editItem(id) {
+        const item = state.items.find((entry) => entry.id === id);
+        if (!item) return;
+        state.editingId = id;
+        state.photo = item.photo || "";
+        els.name.value = item.name || "";
+        els.qty.value = item.qty ?? "";
+        els.qty.readOnly = true;
+        els.qty.title = "Cambia las cantidades desde Movimientos para conservar el historial.";
+        els.unit.value = item.unit || "unidades";
+        els.code.value = item.code || "";
+        els.category.value = item.category || "";
+        els.location.value = item.location || "";
+        els.notes.value = item.notes || "";
+        els.formTitle.textContent = "Editar producto";
+        $("saveBtn").textContent = "Actualizar producto";
+        updatePhotoPreview();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function deleteItem(id) {
+        const item = state.items.find((entry) => entry.id === id);
+        if (!item) return;
+        if (!confirm(`Eliminar "${item.name}" del inventario?`)) return;
+        try {
+          window.Elianne.deleteProduct(id);
+          if (state.editingId === id) resetForm();
+        } catch (error) { window.Elianne.notify(error.message, true); }
+      }
+
+      function xmlText(value) {
+        return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[char]));
+      }
+
+      function utf8(value) { return new TextEncoder().encode(String(value)); }
+      function concatBytes(parts) {
+        const normalized = parts.map((part) => typeof part === "string" ? utf8(part) : part);
+        const total = normalized.reduce((sum, part) => sum + part.length, 0);
+        const out = new Uint8Array(total);
+        let offset = 0;
+        normalized.forEach((part) => { out.set(part, offset); offset += part.length; });
+        return out;
+      }
+      function u16(value) { return new Uint8Array([value & 255, (value >>> 8) & 255]); }
+      function u32(value) { return new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]); }
+
+      const crcTable = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i += 1) {
+          let c = i;
+          for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          table[i] = c >>> 0;
+        }
+        return table;
+      })();
+
+      function crc32(bytes) {
+        let crc = 0xffffffff;
+        for (let i = 0; i < bytes.length; i += 1) crc = crcTable[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+      }
+
+      function makeZip(files) {
+        const now = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+        const localParts = [];
+        const centralParts = [];
+        let offset = 0;
+
+        files.forEach((file) => {
+          const nameBytes = utf8(file.name);
+          const data = typeof file.data === "string" ? utf8(file.data) : file.data;
+          const crc = crc32(data);
+          const local = concatBytes([
+            u32(0x04034b50), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), nameBytes, data
+          ]);
+          localParts.push(local);
+          centralParts.push(concatBytes([
+            u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), nameBytes
+          ]));
+          offset += local.length;
+        });
+
+        const central = concatBytes(centralParts);
+        const local = concatBytes(localParts);
+        const end = concatBytes([u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(central.length), u32(local.length), u16(0)]);
+        return concatBytes([local, central, end]);
+      }
+
+      function dataImage(photo) {
+        const match = String(photo || "").match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/i);
+        if (!match) return null;
+        const binary = atob(match[2]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return { mime: match[1].toLowerCase().replace("jpg", "jpeg"), bytes };
+      }
+
+      function exportExcel() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        const headers = ["Foto", "Producto", "Codigo", "Categoria", "Cantidad", "Unidad", "Ubicacion", "Notas"];
+        const cell = (ref, value) => `<c r="${ref}" t="inlineStr"><is><t>${xmlText(value)}</t></is></c>`;
+        const rowXml = (number, values, height) => `<row r="${number}" ht="${height}" customHeight="1">${values.map((value, index) => cell(String.fromCharCode(65 + index) + number, value)).join("")}</row>`;
+        const images = [];
+        const dataRows = rows.map((item, index) => {
+          const excelRow = index + 2;
+          const image = dataImage(item.photo);
+          if (image) {
+            const ext = image.mime.includes("png") ? "png" : "jpeg";
+            images.push({ ...image, excelRow, relId: `rIdImg${images.length + 1}`, name: `image${images.length + 1}.${ext}` });
+          }
+          return rowXml(excelRow, ["", item.name, item.code, item.category, item.qty, item.unit, item.location, item.notes], 58);
+        }).join("");
+
+        const sheetDrawing = images.length ? '<drawing r:id="rId1"/>' : "";
+        const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="13" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="14" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/><col min="5" max="6" width="12" customWidth="1"/><col min="7" max="8" width="24" customWidth="1"/></cols><sheetData>${rowXml(1, headers, 24)}${dataRows}</sheetData>${sheetDrawing}</worksheet>`;
+
+        const files = [
+          { name: "_rels/.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+          { name: "xl/workbook.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+          { name: "xl/_rels/workbook.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>' },
+          { name: "xl/worksheets/sheet1.xml", data: sheetXml }
+        ];
+
+        if (images.length) {
+          files.push({ name: "xl/worksheets/_rels/sheet1.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>' });
+          files.push({ name: "xl/drawings/drawing1.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${images.map((image, index) => `<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>95250</xdr:colOff><xdr:row>${image.excelRow - 1}</xdr:row><xdr:rowOff>95250</xdr:rowOff></xdr:from><xdr:ext cx="610000" cy="610000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index + 1}" name="Foto ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${image.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`).join("")}</xdr:wsDr>` });
+          files.push({ name: "xl/drawings/_rels/drawing1.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${images.map((image) => `<Relationship Id="${image.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${image.name}"/>`).join("")}</Relationships>` });
+          images.forEach((image) => files.push({ name: `xl/media/${image.name}`, data: image.bytes }));
+        }
+
+        const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${images.some((image) => image.mime.includes("jpeg")) ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : ""}${images.some((image) => image.mime.includes("png")) ? '<Default Extension="png" ContentType="image/png"/>' : ""}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${images.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}</Types>`;
+        files.unshift({ name: "[Content_Types].xml", data: contentTypes });
+        download(`inventario-elianne-${new Date().toISOString().slice(0, 10)}.xlsx`, makeZip(files), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+
+      function cp1252Hex(text) {
+        const map = { "€": 128, "‚": 130, "ƒ": 131, "„": 132, "…": 133, "†": 134, "‡": 135, "ˆ": 136, "‰": 137, "Š": 138, "‹": 139, "Œ": 140, "Ž": 142, "‘": 145, "’": 146, "“": 147, "”": 148, "•": 149, "–": 150, "—": 151, "˜": 152, "™": 153, "š": 154, "›": 155, "œ": 156, "ž": 158, "Ÿ": 159 };
+        const bytes = [];
+        String(text || "").replace(/[\r\n]+/g, " ").split("").forEach((char) => {
+          const code = char.charCodeAt(0);
+          bytes.push(code <= 255 ? code : (map[char] || 63));
+        });
+        return `<${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
+      }
+
+      function jpegSize(bytes) {
+        let offset = 2;
+        while (offset < bytes.length) {
+          if (bytes[offset] !== 255) { offset += 1; continue; }
+          const marker = bytes[offset + 1];
+          const length = (bytes[offset + 2] << 8) + bytes[offset + 3];
+          if (marker >= 192 && marker <= 195) return { width: (bytes[offset + 7] << 8) + bytes[offset + 8], height: (bytes[offset + 5] << 8) + bytes[offset + 6] };
+          offset += 2 + length;
+        }
+        return { width: 1, height: 1 };
+      }
+
+      function exportPdf() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        const objects = [];
+        const setObj = (id, chunks) => { objects[id] = Array.isArray(chunks) ? chunks : [chunks]; };
+        const catalogId = 1, pagesId = 2, fontId = 3, boldId = 4;
+        let nextId = 4;
+        const imageRefs = new Map();
+
+        rows.forEach((item) => {
+          const image = dataImage(item.photo);
+          if (!image || !image.mime.includes("jpeg")) return;
+          const objId = nextId += 1;
+          const name = `Im${imageRefs.size + 1}`;
+          const size = jpegSize(image.bytes);
+          setObj(objId, [`<< /Type /XObject /Subtype /Image /Width ${size.width} /Height ${size.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`, image.bytes, "\nendstream"]);
+          imageRefs.set(item.id, { objId, name });
+        });
+
+        setObj(fontId, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        setObj(boldId, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+
+        const pageIds = [];
+        const rowsPerPage = 9;
+        const pageCount = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+        const cols = [36, 94, 218, 286, 360, 415, 485];
+        const widths = [58, 124, 68, 74, 55, 70, 74];
+        const labels = ["Foto", "Producto", "Codigo", "Categoria", "Cant.", "Ubicacion", "Notas"];
+        const limits = [0, 24, 13, 14, 10, 14, 18];
+
+        const addText = (commands, text, x, y, size, bold = false) => commands.push(`BT /F${bold ? 2 : 1} ${size} Tf ${x} ${y} Td ${cp1252Hex(text)} Tj ET`);
+        const wrap = (text, limit, maxLines = 2) => {
+          const words = clean(text).split(/\s+/).filter(Boolean);
+          const lines = [];
+          let current = "";
+          words.forEach((word) => {
+            const test = current ? `${current} ${word}` : word;
+            if (test.length > limit && current) { lines.push(current); current = word; }
+            else current = test;
+          });
+          if (current) lines.push(current);
+          return lines.slice(0, maxLines).map((line, index, arr) => index === arr.length - 1 && lines.length > maxLines ? `${line.slice(0, Math.max(0, limit - 1))}...` : line);
+        };
+
+        for (let page = 0; page < pageCount; page += 1) {
+          const commands = ["0.75 w"];
+          addText(commands, "Inventario Elianne", 36, 808, 20, true);
+          addText(commands, `Fecha: ${today()}   Productos: ${rows.length}   Unidades: ${rows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}`, 36, 786, 9);
+          addText(commands, `Pagina ${page + 1} de ${pageCount}`, 500, 808, 9);
+          commands.push("36 778 m 559 778 l S");
+
+          labels.forEach((label, i) => { commands.push(`${cols[i]} 748 ${widths[i]} 22 re S`); addText(commands, label, cols[i] + 4, 756, 8, true); });
+          const pageRows = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+          pageRows.forEach((item, index) => {
+            const top = 748 - 22 - index * 72;
+            const bottom = top - 70;
+            widths.forEach((width, i) => commands.push(`${cols[i]} ${bottom} ${width} 70 re S`));
+            const image = imageRefs.get(item.id);
+            if (image) commands.push(`q 48 0 0 48 ${cols[0] + 5} ${bottom + 11} cm /${image.name} Do Q`);
+            const values = ["", item.name, item.code, item.category, `${item.qty} ${item.unit}`, item.location, item.notes];
+            values.forEach((value, i) => {
+              if (i === 0) return;
+              wrap(value, limits[i], i === 6 ? 3 : 2).forEach((line, lineIndex) => addText(commands, line, cols[i] + 4, top - 14 - lineIndex * 10, 7.5, i === 1));
+            });
+          });
+
+          const usedImages = pageRows.map((item) => imageRefs.get(item.id)).filter(Boolean);
+          const xObjects = usedImages.length ? `/XObject << ${usedImages.map((image) => `/${image.name} ${image.objId} 0 R`).join(" ")} >>` : "";
+          const content = commands.join("\n");
+          const contentId = nextId += 1;
+          const pageId = nextId += 1;
+          setObj(contentId, `<< /Length ${utf8(content).length} >>\nstream\n${content}\nendstream`);
+          setObj(pageId, `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> ${xObjects} >> /Contents ${contentId} 0 R >>`);
+          pageIds.push(pageId);
+        }
+
+        setObj(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
+        setObj(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+        const maxId = objects.length - 1;
+        const parts = [];
+        const offsets = new Array(maxId + 1).fill(0);
+        let position = 0;
+        const add = (part) => { const bytes = typeof part === "string" ? utf8(part) : part; parts.push(bytes); position += bytes.length; };
+        add("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+        for (let id = 1; id <= maxId; id += 1) {
+          if (!objects[id]) continue;
+          offsets[id] = position;
+          add(`${id} 0 obj\n`);
+          objects[id].forEach(add);
+          add("\nendobj\n");
+        }
+        const xref = position;
+        add(`xref\n0 ${maxId + 1}\n0000000000 65535 f \n`);
+        for (let id = 1; id <= maxId; id += 1) add(`${String(offsets[id]).padStart(10, "0")} 00000 n \n`);
+        add(`trailer\n<< /Size ${maxId + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`);
+        download(`inventario-elianne-${new Date().toISOString().slice(0, 10)}.pdf`, concatBytes(parts), "application/pdf");
+      }
+
+      function backup() {
+        download(`respaldo-completo-elianne-${window.Elianne.today()}.json`, JSON.stringify(window.Elianne.backup(), null, 2), "application/json;charset=utf-8");
+        window.Elianne.notify("Respaldo completo descargado: productos, fotos, eventos, estados, costos y movimientos.");
+      }
+
+      els.photoInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          state.photo = await compressImage(file);
+          updatePhotoPreview();
+          showNotice("Foto cargada correctamente.");
+        } catch {
+          showNotice("No se pudo cargar esa foto. Prueba con otra imagen.");
+        } finally {
+          els.photoInput.value = "";
+        }
+      });
+
+      els.removePhotoBtn.addEventListener("click", () => { state.photo = ""; updatePhotoPreview(); });
+      $("clearBtn").addEventListener("click", resetForm);
+      els.search.addEventListener("input", renderList);
+      els.filter.addEventListener("change", renderList);
+      els.sort.addEventListener("change", renderList);
+      $("excelBtn").addEventListener("click", exportExcel);
+      $("pdfBtn").addEventListener("click", exportPdf);
+      $("backupBtn").addEventListener("click", backup);
+      $("restoreInput").addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const imported = window.Elianne.prepareRestore(JSON.parse(reader.result));
+            if (!confirm("Restaurar este respaldo reemplazara los datos actuales. Se descargara primero una copia de los datos actuales. Continuar?")) return;
+            backup();
+            window.Elianne.restore(imported);
+            resetForm();
+            window.Elianne.notify("Respaldo restaurado correctamente.");
+          } catch (error) { window.Elianne.notify(error.message, true); }
+        };
+        reader.onerror = () => window.Elianne.notify("No se pudo leer el archivo de respaldo.", true);
+        reader.readAsText(file);
+        event.target.value = "";
+      });
+
+      els.form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const payload = {
+          id: state.editingId || uid(),
+          name: clean(els.name.value),
+          qty: Number(els.qty.value || 0),
+          unit: clean(els.unit.value) || "unidades",
+          code: clean(els.code.value),
+          category: clean(els.category.value) || "Otros",
+          location: clean(els.location.value),
+          notes: clean(els.notes.value),
+          photo: state.photo,
+          updatedAt: Date.now()
+        };
+        if (!payload.name) { els.name.focus(); return; }
+        try {
+          window.Elianne.upsertProduct(payload);
+          resetForm();
+          window.Elianne.notify("Producto guardado.");
+        } catch (error) { window.Elianne.notify(error.message, true); }
+      });
+
+      els.list.addEventListener("click", (event) => {
+        const edit = event.target.closest("[data-edit]");
+        const remove = event.target.closest("[data-delete]");
+        if (edit) editItem(edit.dataset.edit);
+        if (remove) deleteItem(remove.dataset.delete);
+      });
+
+      window.addEventListener("elianne:change", save);
+      load();
+      render();
+      updatePhotoPreview();
+    </script>
+  <style>.salon-module{margin-top:0;min-width:0}
+.topbar h1{font-size:32px;line-height:1.15}.topbar .subtitle{font-size:14px}
+.inventory-heading,.agenda-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:4px 0 18px}
+.agenda-metrics{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:13px}
+.agenda-metrics strong{font-size:17px;color:var(--ink);margin-right:3px}
+.calendar-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:14px}
+.calendar-month-nav{display:flex;align-items:center;gap:8px;min-width:0}
+.calendar-month-nav h3{font-size:20px;margin:0;min-width:205px;text-transform:capitalize;text-align:center}
+.icon-btn{width:40px;height:42px;padding:0;font-size:28px;flex-shrink:0;line-height:1}
+.calendar-pickers{display:flex;gap:8px;min-width:0}.calendar-pickers input{width:215px;font-size:14px}.calendar-pickers select{width:215px}
+.calendar-legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:16px}
+.calendar-legend span{display:flex;align-items:center;gap:6px}.calendar-legend i{width:9px;height:9px;border-radius:2px}
+.legend-reservado{background:#b63d57}.legend-en-evento{background:#087e75}.legend-cotizacion{background:#b27908}.legend-finished{background:#7d8791}
+.agenda-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:22px;align-items:start}
+.calendar-board{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:white;min-width:0}
+.calendar-weekdays,.calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.calendar-weekdays span{padding:11px 4px;text-align:center;background:#e8edf1;color:var(--muted);font-size:12px;font-weight:700}
+.calendar-day{position:relative;min-width:0;height:108px;padding:9px 6px;border:0;border-top:1px solid var(--line);border-right:1px solid var(--line);text-align:left;vertical-align:top;color:var(--ink);background:#fff;overflow:hidden;display:flex;flex-direction:column;gap:7px}
+.calendar-day:nth-child(7n){border-right:0}.calendar-day:hover{background:#f1f6fa}.calendar-day.has-booking{background:#fff3f5}
+.calendar-day.outside-month{background:#f3f5f6;color:#7c8790}.calendar-day.outside-month .day-events{opacity:.65}
+.calendar-day.is-selected{box-shadow:inset 0 0 0 2px #174ea6;background:#edf3ff}
+.calendar-day:focus-visible{outline:3px solid #174ea6;outline-offset:-3px;z-index:1}
+.day-number{display:grid;place-items:center;width:24px;height:24px;font-size:13px;font-weight:650;flex-shrink:0;align-self:flex-start}
+.is-today .day-number{background:var(--ink);color:white;border-radius:50%}
+.day-events{display:grid;gap:4px;max-width:100%;min-width:0;align-self:stretch}
+.calendar-event{display:block;font-size:11px;line-height:1.3;border-left:3px solid transparent;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:2px}
+.event-reservado{background:#f9e4e9;color:#88263e;border-left-color:#b63d57}.event-en-evento{background:#ddf2ec;color:#065e56;border-left-color:#087e75}
+.event-cotizacion{background:#fff1ce;color:#775000;border-left-color:#b27908}.event-devuelto,.event-cerrado{background:#eef0f2;color:#56616a;border-left-color:#7d8791}
+.calendar-more{font-size:10px;color:var(--muted);padding-left:4px}.day-mobile-status{display:none}
+.agenda-day{min-width:0}.agenda-day-heading{display:grid;gap:12px;justify-items:start;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px}
+.agenda-day-heading h3{font-size:16px;margin:0;text-transform:capitalize;line-height:1.5}
+.event-status{display:inline-block;font-size:11px;font-weight:700;border-radius:3px;padding:4px 7px;margin-bottom:9px}
+.agenda-event p{font-size:13px;line-height:1.5}.agenda-event .salon-actions{justify-content:flex-start;margin-top:12px}
+.salon-module [hidden]{display:none!important}
+.venue-fields{padding:12px 0;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:0;display:grid;gap:13px;min-width:0}
+.venue-fields legend{font-size:13px;color:var(--muted);font-weight:750;padding:0 8px 0 0}
+.hall-choices{display:flex;gap:8px;flex-wrap:wrap}
+.hall-choice{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:5px;padding:8px;background:white;color:var(--ink);min-width:0}
+.hall-choice input,.venue-mode input{width:16px;height:16px;min-height:0;margin:0;box-shadow:none;flex-shrink:0}
+.hall-choice:has(input:checked){border-color:var(--accent);background:#e9f5f1}.hall-choice span{overflow-wrap:anywhere;min-width:0}
+.hall-dot{display:inline-block;width:9px;height:9px;flex-shrink:0;border-radius:2px}.unassigned-dot{background:#7d8791}
+.venue-mode{display:flex;gap:0;align-items:stretch}.venue-mode label{display:flex;gap:7px;align-items:center;padding:9px 10px;background:white;border:1px solid var(--line);color:var(--ink);font-weight:650}
+.venue-mode label:first-child{border-radius:5px 0 0 5px}.venue-mode label:last-child{border-radius:0 5px 5px 0}.venue-mode label:has(input:checked){background:#e9f5f1;border-color:var(--accent)}
+.venue-badge{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0 9px;font-size:13px;font-weight:650}
+.venue-event{background:var(--hall-tint);color:var(--hall-ink);border-left-color:var(--hall-accent)}.quote-chip{border-left-style:dashed;opacity:.8}
+.mobile-hall-dots{display:flex;gap:3px;margin-top:4px}.mobile-hall-dots .hall-dot{width:6px;height:6px}
+.venue-pending{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;margin-bottom:15px;background:#fff3d9;border:1px solid #e3c47f;border-radius:5px;font-size:13px}
+#calendarHallStatus{margin-bottom:16px}.hall-day-status{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
+.hall-day-status>span{display:flex;align-items:center;gap:7px;min-width:0;overflow-wrap:anywhere}.hall-day-status strong{font-weight:650;font-size:11px;text-align:right}.hall-busy{color:#88263e}.hall-free{color:#166434}
+.salon-dialog{border:1px solid var(--line);border-radius:8px;padding:20px;width:min(520px,calc(100% - 24px));max-height:calc(100vh - 32px);overflow:auto;color:var(--ink)}
+.salon-dialog::backdrop{background:#17212b77}.salon-dialog .form{padding:0}.salon-dialog h2{margin-bottom:5px}
+.calendar-pickers{flex-wrap:wrap}.calendar-pickers #calendarHall{width:185px}
+.salon-module .panel-head{padding:18px 0;border:0}
+.salon-tabs{display:flex;gap:8px;overflow-x:auto;padding:0 0 16px}
+.salon-tab{white-space:nowrap;flex-shrink:0}
+.salon-tab.active{background:var(--ink);border-color:var(--ink);color:white}
+.salon-view{display:none}.salon-view.active{display:block}
+.salon-grid{display:grid;grid-template-columns:minmax(300px,390px) minmax(0,1fr);gap:20px;align-items:start}
+.salon-grid>*{min-width:0}.salon-module .form{padding:0 0 16px}
+.salon-module h2{font-size:18px}.salon-module h3{font-size:16px;margin-bottom:8px;overflow-wrap:anywhere}
+.salon-event-column{display:grid;gap:12px;min-width:0}
+.salon-tools{display:flex;gap:10px;margin:12px 0;align-items:center}
+.salon-tools input{min-width:0}.salon-tools select{max-width:200px}
+.salon-list{display:grid;gap:12px;min-width:0}
+.salon-card{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--panel);min-width:0;overflow-wrap:anywhere}
+.salon-mini{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.salon-mini>div{min-width:0}.salon-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.salon-muted{color:var(--muted);font-size:13px;margin-top:8px}
+.salon-assign{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:end}
+.table-wrap{overflow-x:auto;max-width:100%;min-width:0}
+.salon-table{width:100%;min-width:420px;border-collapse:collapse;font-size:13px;background:white}
+.salon-table th,.salon-table td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.salon-table th{font-size:12px;color:var(--muted);overflow-wrap:normal}
+.salon-table td:first-child{min-width:120px;overflow-wrap:anywhere}
+.return-table{min-width:620px;table-layout:fixed}.return-table th:first-child{width:30%}.return-table th:nth-child(2){width:10%}
+.return-table input{min-height:38px;padding:7px;width:100%}
+.return-feedback{font-size:13px;margin-top:10px;min-height:18px;color:var(--muted)}
+.invalid{color:var(--danger)}input[aria-invalid="true"]{border-color:var(--danger);background:#fff4f3}
+.salon-alerts,.report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.salon-alerts ul{padding-left:20px;margin-bottom:0;font-size:14px;line-height:1.6}
+.has-alert{border-left:4px solid #ad6800}.status-reservado{background:#edf3ff;color:#174ea6}.status-en-evento{background:#fff4de;color:#8c5000}.status-devuelto{background:#e5f4e9;color:#166434}
+.report-grid p{margin-bottom:12px}.report-grid button{margin:4px 4px 0 0}
+.movement-form{max-width:700px}.movement-table{min-width:800px}
+.system-notice{position:fixed;bottom:16px;left:16px;right:16px;z-index:1000;max-width:900px;margin:auto;padding:14px 18px;background:#e5f4e9;border:1px solid #539866;border-radius:8px;box-shadow:0 5px 24px #0002;color:#153f24;overflow-wrap:anywhere}
+.system-notice.error{background:#fff4f3;color:#842018;border-color:#d8847d}
+button:disabled{opacity:.5;cursor:not-allowed}input:read-only{background:#eef2f5}
+@media(max-width:1000px){.salon-grid{grid-template-columns:1fr}.salon-mini{display:block}.salon-actions{justify-content:flex-start;margin-top:12px}}
+@media(max-width:1100px){.calendar-toolbar{flex-wrap:wrap}.agenda-layout{grid-template-columns:minmax(0,1fr) 250px}}
+@media(max-width:820px){.agenda-layout{grid-template-columns:1fr}.agenda-day-heading{display:flex;justify-content:space-between;align-items:center}.agenda-day>.salon-list{grid-template-columns:repeat(2,minmax(0,1fr))}.calendar-day{height:104px}}
+@media(max-width:600px){.topbar h1{font-size:28px}.inventory-heading,.agenda-heading{flex-wrap:wrap}.agenda-metrics{gap:8px 16px}.calendar-toolbar{gap:12px}.calendar-month-nav{width:100%}.calendar-month-nav h3{flex:1;min-width:0;font-size:17px}.calendar-month-nav>.btn:not(.icon-btn){padding:8px}.calendar-pickers{width:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.calendar-pickers input,.calendar-pickers select{width:100%;font-size:12px;padding:7px}.calendar-legend{gap:9px 12px}.calendar-day{height:75px;padding:5px 3px;gap:5px}.day-events{display:none}.day-mobile-status{display:block;font-size:10px;line-height:1.3;overflow-wrap:anywhere}.mobile-booked{color:#88263e}.mobile-quote{color:#775000}.mobile-finished{color:#56616a}.day-number{font-size:12px;width:22px;height:22px}.agenda-day>.salon-list{grid-template-columns:1fr}.agenda-day-heading{align-items:start}.agenda-day-heading h3{font-size:14px}.agenda-day-heading button{white-space:nowrap}.calendar-weekdays span{font-size:11px}}
+@media(max-width:600px){.calendar-pickers #calendarHall{width:100%}.calendar-pickers #calendarFilter{grid-column:1/-1}.venue-pending{flex-wrap:wrap}.salon-dialog{padding:14px}.hall-choice{font-size:12px}.hall-choices{gap:6px}}
+@media(max-width:600px){.salon-alerts,.report-grid{grid-template-columns:1fr}.salon-tools{flex-wrap:wrap}.salon-tools select{max-width:none}.salon-assign{grid-template-columns:minmax(0,1fr) 85px}.salon-assign>button{grid-column:1 / -1}.salon-module .row{grid-template-columns:1fr}.salon-card{padding:10px}}
+</style>
+<script>(() => {
+  'use strict';
+  const api = window.Elianne;
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const today = api.today;
+  const money = v => Number(v || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const statuses = { cotizacion: 'Cotizacion', reservado: 'Reservado', 'en-evento': 'En evento', devuelto: 'Devuelto', cerrado: 'Cerrado', cancelado: 'Cancelado' };
+  const prodStatus = { disponible: 'Disponible', limpieza: 'En limpieza', mantenimiento: 'Mantenimiento', danado: 'Dañado', baja: 'Baja' };
+  const types = { 'saldo-inicial': 'Saldo inicial', alta: 'Alta', edicion: 'Edicion', compra: 'Compra', reparacion: 'Reparacion', recuperacion: 'Recuperacion', baja: 'Baja', 'correccion-entrada': 'Correccion +', 'correccion-salida': 'Correccion -', salida: 'Salida', devolucion: 'Devolucion', 'daño': 'Daño', faltante: 'Faltante' };
+  let draft = [], editing = null;
+  let selectedDay = today(), calendarMonth = today().slice(0, 7);
+  let assigning=null;
+  const hallColors={'hall-1':{accent:'#b63d57',tint:'#f9e4e9',ink:'#88263e'},'hall-2':{accent:'#087e75',tint:'#ddf2ec',ink:'#065e56'},'hall-3':{accent:'#2358ad',tint:'#e5edff',ink:'#174080'}};
+  const hallNames=e=>api.get().halls.filter(h=>(e.hallIds||[]).includes(h.id)).map(h=>h.name).join(' + ')||'Sin salon asignado';
+  const hallDots=e=>(e.hallIds||[]).map(id=>`<i class="hall-dot" style="background:${hallColors[id].accent}"></i>`).join('')||'<i class="hall-dot unassigned-dot"></i>';
+  const venueLabel=e=>(e.venueMode==='hours'?e.startTime+' a '+e.endTime:'Dia completo')+(e.venueEndDate!==e.eventDate?' · hasta '+e.venueEndDate:'');
+  const returns = new Map();
+  const product = pid => api.get().items.find(p => p.id === pid);
+  function download(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type })), link = document.createElement('a');
+    link.href = url; link.download = name; document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+  function simplePdf(title,rows){const enc=new TextEncoder,hex=t=>`<${[...String(t||'')].map(ch=>{const c=ch.charCodeAt(0);return(c<=255?c:63).toString(16).padStart(2,'0')}).join('')}>`,pages=[];for(let i=0;i<Math.max(rows.length,1);i+=52)pages.push(rows.slice(i,i+52));const objects=[];let next=4;objects[1]='<< /Type /Catalog /Pages 2 0 R >>';objects[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';const pageIds=[];pages.forEach((page,idx)=>{const text=[`BT /F1 18 Tf 36 806 Td ${hex(title)} Tj ET`,`BT /F1 9 Tf 36 786 Td ${hex('Fecha: '+today()+'   Pagina '+(idx+1)+' de '+pages.length)} Tj ET`,'36 778 m 559 778 l S',...page.map((r,i)=>`BT /F1 9 Tf 40 ${758-i*14} Td ${hex(r.slice(0,118))} Tj ET`)].join('\n'),cid=next++,pid=next++;objects[cid]=`<< /Length ${enc.encode(text).length} >>\nstream\n${text}\nendstream`;objects[pid]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cid} 0 R >>`;pageIds.push(pid)});objects[2]=`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;let parts=[],offsets=[],pos=0;const add=s=>{const b=enc.encode(s);parts.push(b);pos+=b.length};add('%PDF-1.4\n');for(let i=1;i<objects.length;i++){if(!objects[i])continue;offsets[i]=pos;add(`${i} 0 obj\n${objects[i]}\nendobj\n`)}const xref=pos;add(`xref\n0 ${objects.length}\n0000000000 65535 f \n`);for(let i=1;i<objects.length;i++)add(`${String(offsets[i]||0).padStart(10,'0')} 00000 n \n`);add(`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);const total=parts.reduce((s,b)=>s+b.length,0),out=new Uint8Array(total);let off=0;parts.forEach(b=>{out.set(b,off);off+=b.length});download(title.toLowerCase().replace(/\s+/g,'-')+'-'+today()+'.pdf',out,'application/pdf')}
+
+  function run(action, success = 'Guardado correctamente.') {
+    try { action(); api.notify(success); return true; }
+    catch (error) { api.notify(error.message, true); return false; }
+  }
+  function init() {
+    document.querySelector('.app').insertAdjacentHTML('beforeend', `
+      <section class="salon-module" aria-label="Control de eventos">
+        <nav class="salon-tabs" aria-label="Secciones del salon">
+          ${[['calendar','Agenda'],['events','Eventos'],['inventory','Inventario'],['returns','Salida y devolucion'],['settings','Stock y costos'],['movements','Movimientos'],['alerts','Alertas'],['reports','Reportes']].map(([key,label],i)=>`<button type="button" class="btn salon-tab ${i===0?'active':''}" data-tab="${key}" aria-pressed="${i===0}">${label}</button>`).join('')}
+        </nav>
+        <div id="salon-calendar" class="salon-view active">
+          <div class="agenda-heading"><div><h2>Agenda de salones</h2><div id="agendaMetrics" class="agenda-metrics"></div></div><div class="actions"><button class="btn" type="button" id="hallConfigOpen">Salones</button><button class="btn primary" type="button" id="calendarNew">Nuevo evento</button></div></div>
+          <div id="calendarPending" class="venue-pending" hidden></div>
+          <div class="calendar-toolbar">
+            <div class="calendar-month-nav"><button type="button" class="btn icon-btn" id="calendarPrev" aria-label="Mes anterior" title="Mes anterior">&#8249;</button><h3 id="calendarTitle" aria-live="polite"></h3><button type="button" class="btn icon-btn" id="calendarNext" aria-label="Mes siguiente" title="Mes siguiente">&#8250;</button><button type="button" class="btn" id="calendarToday">Hoy</button></div>
+            <div class="calendar-pickers"><input type="month" id="calendarMonth" aria-label="Ir al mes" min="1900-01" max="2199-12"><select id="calendarHall" aria-label="Filtrar por salon"></select><select id="calendarFilter" aria-label="Filtrar agenda"><option value="">Todos los eventos</option><option value="occupied">Reservas confirmadas</option><option value="cotizacion">Cotizaciones</option><option value="finished">Finalizados</option></select></div>
+          </div>
+          <div id="calendarHallLegend" class="calendar-legend" aria-label="Salones de la agenda"></div>
+          <div class="agenda-layout">
+            <div class="calendar-board"><div class="calendar-weekdays" aria-hidden="true">${['Lun','Mar','Mie','Jue','Vie','Sab','Dom'].map(d=>`<span>${d}</span>`).join('')}</div><div id="calendarDays" class="calendar-days" aria-label="Dias del mes"></div></div>
+            <aside class="agenda-day"><div class="agenda-day-heading"><h3 id="calendarDayTitle"></h3><button type="button" class="btn small" id="calendarNewDay">Agregar evento</button></div><div id="calendarHallStatus"></div><div id="calendarDayEvents" class="salon-list" aria-live="polite"></div></aside>
+          </div>
+        </div>
+        <div id="salon-inventory" class="salon-view"><div class="inventory-heading"><h2>Inventario</h2><div class="actions" id="inventoryExports"></div></div></div>
+        <div id="salon-events" class="salon-view">
+          <div class="salon-grid">
+            <form class="form" id="salonEventForm">
+              <h2 id="salonEventTitle">Nuevo evento</h2>
+              <div class="field"><label for="salonClient">Cliente / evento</label><input id="salonClient" required></div>
+              <div class="field"><label for="salonEventDate">Fecha del evento</label><input id="salonEventDate" type="date" required></div>
+              ${venueFields('event')}
+              <div class="row">
+                <div class="field"><label for="salonDate">Fecha de salida</label><input id="salonDate" type="date" required></div>
+                <div class="field"><label for="salonEnd">Devolucion prevista</label><input id="salonEnd" type="date" required></div>
+              </div>
+              <div class="row">
+                <div class="field"><label for="salonType">Tipo</label><select id="salonType">${['Boda','Cumpleaños','Corporativo','Bautizo','Graduacion','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+                <div class="field"><label for="salonStatus">Estado</label><select id="salonStatus"><option value="cotizacion">Cotizacion</option><option value="reservado">Reservado</option></select></div>
+              </div>
+              <div class="field"><label for="salonResp">Responsable</label><input id="salonResp" required></div>
+              <div class="field"><label for="salonPlace">Lugar</label><input id="salonPlace"></div>
+              <div class="salon-assign">
+                <div class="field"><label for="salonProduct">Producto</label><select id="salonProduct"></select></div>
+                <div class="field"><label for="salonQty">Cantidad</label><input id="salonQty" type="number" min="1" step="1"></div>
+                <button type="button" class="btn" id="salonAddItem">Agregar</button>
+              </div>
+              <div id="salonDraft"></div>
+              <div class="field"><label for="salonNotes">Notas</label><textarea id="salonNotes"></textarea></div>
+              <div class="actions"><button class="btn primary" type="submit">Guardar evento</button><button class="btn" type="button" id="salonClearEvent">Limpiar</button></div>
+            </form>
+            <div class="salon-event-column">
+              <h2>Eventos registrados</h2>
+              <div class="salon-tools"><input id="salonEventSearch" type="search" aria-label="Buscar eventos" placeholder="Buscar evento, producto o responsable"><select id="salonEventFilter" aria-label="Estado del evento"><option value="">Todos los estados</option>${Object.entries(statuses).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+              <div class="salon-list" id="salonEventList"></div>
+            </div>
+          </div>
+        </div>
+        <div id="salon-returns" class="salon-view"><div class="salon-list" id="salonReturnList"></div></div>
+        <div id="salon-alerts" class="salon-view"><div class="salon-alerts" id="salonAlertList"></div></div>
+        <div id="salon-settings" class="salon-view">
+          <div class="salon-grid">
+            <form class="form" id="salonExtraForm"><h2>Estado y costo</h2>
+              <div class="field"><label for="extraProduct">Producto</label><select id="extraProduct" required></select></div>
+              <div class="field"><label for="extraStatus">Estado</label><select id="extraStatus">${Object.entries(prodStatus).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+              <div class="row"><div class="field"><label for="extraMin">Stock minimo</label><input id="extraMin" type="number" min="0" step="1" required></div><div class="field"><label for="extraCost">Costo de reposicion (Bs)</label><input id="extraCost" type="number" min="0" step="0.01" required></div></div>
+              <button type="submit" class="btn primary">Guardar datos</button>
+            </form>
+            <div class="salon-event-column"><h2>Disponibilidad por periodo</h2><div class="row"><div class="field"><label for="stockStart">Desde</label><input id="stockStart" type="date" value="${today()}"></div><div class="field"><label for="stockEnd">Hasta</label><input id="stockEnd" type="date" value="${today()}"></div></div><div class="salon-list" id="salonStockList"></div></div>
+          </div>
+        </div>
+        <div id="salon-movements" class="salon-view">
+          <form class="form movement-form" id="movementForm"><h2>Nuevo movimiento</h2>
+            <div class="row"><div class="field"><label for="moveProduct">Producto</label><select id="moveProduct" required></select></div><div class="field"><label for="moveType">Movimiento</label><select id="moveType">${['compra','reparacion','recuperacion','baja','correccion-entrada','correccion-salida'].map(k=>`<option value="${k}">${types[k]}</option>`).join('')}</select></div></div>
+            <div class="row"><div class="field"><label for="moveQty">Cantidad</label><input id="moveQty" type="number" min="1" step="1" required></div><div class="field"><label for="moveResp">Responsable</label><input id="moveResp" required></div></div>
+            <div class="field"><label for="moveReason">Motivo</label><input id="moveReason" required></div><div class="actions"><button type="submit" class="btn primary">Registrar movimiento</button></div>
+          </form>
+          <div class="salon-tools"><input id="moveSearch" type="search" placeholder="Buscar en el historial" aria-label="Buscar movimientos"><button type="button" class="btn" id="moveCsv">Exportar movimientos CSV</button></div>
+          <div id="movementList"></div>
+        </div>
+        <div id="salon-reports" class="salon-view"><div id="salonReportList" class="report-grid"></div></div>
+        <dialog id="hallConfigDialog" class="salon-dialog" aria-labelledby="hallConfigTitle"><form id="hallConfigForm" class="form"><h2 id="hallConfigTitle">Salones</h2>${api.get().halls.map(h=>`<div class="field"><label for="name-${h.id}">Nombre ${h.id.slice(-1)}</label><input id="name-${h.id}" maxlength="60" required></div>`).join('')}<p id="hallConfigError" class="invalid" role="status"></p><div class="actions"><button class="btn" type="button" data-close-dialog="hallConfigDialog">Cancelar</button><button class="btn primary" type="submit">Guardar nombres</button></div></form></dialog>
+        <dialog id="assignDialog" class="salon-dialog" aria-labelledby="assignTitle"><form id="assignForm" class="form"><h2 id="assignTitle">Asignar salones</h2><p id="assignDate" class="salon-muted"></p>${venueFields('assign')}<p id="assignError" class="invalid" role="status"></p><div class="actions"><button class="btn" type="button" data-close-dialog="assignDialog">Cancelar</button><button class="btn primary" type="submit">Guardar asignacion</button></div></form></dialog>
+      </section>`);
+    $('salon-inventory').append(document.querySelector('.stats'), document.querySelector('.layout'));
+    $('inventoryExports').append($('excelBtn'), $('pdfBtn'));
+    document.querySelector('.salon-module').addEventListener('click', click);
+    document.querySelector('.salon-module').addEventListener('input', input);
+    $('calendarDays').addEventListener('keydown', event => {
+      const day=event.target.closest('[data-calendar-date]'); if(!day)return;
+      const d=localDate(day.dataset.calendarDate), weekday=(d.getDay()+6)%7;
+      const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7,Home:-weekday,End:6-weekday}[event.key];
+      if(delta===undefined)return;
+      event.preventDefault();d.setDate(d.getDate()+delta);selectDay(dateKey(d),true);
+    });
+    $('salonEventForm').addEventListener('submit', saveEvent);
+    $('salonExtraForm').addEventListener('submit', e => { e.preventDefault(); run(() => api.saveExtra($('extraProduct').value, { status: $('extraStatus').value, minQty: $('extraMin').value, cost: $('extraCost').value })); });
+    $('extraProduct').addEventListener('change', loadExtras);
+    $('hallConfigForm').addEventListener('submit',e=>{
+      e.preventDefault();dialogSave('hallConfigDialog','hallConfigError',()=>api.saveHalls(api.get().halls.map(h=>({id:h.id,name:$('name-'+h.id).value}))));
+    });
+    $('assignForm').addEventListener('submit',e=>{
+      e.preventDefault();dialogSave('assignDialog','assignError',()=>api.assignVenue(assigning,readVenue('assign')));
+    });
+    $('movementForm').addEventListener('submit', e => {
+      e.preventDefault();
+      if (run(() => api.adjust($('moveProduct').value, $('moveType').value, $('moveQty').value, $('moveReason').value, $('moveResp').value))) { $('moveQty').value = ''; $('moveReason').value = ''; }
+    });
+    window.addEventListener('elianne:change', refresh);
+    window.addEventListener('elianne:restored', () => { returns.clear(); resetEvent(); refresh(); });
+    refresh();
+  }
+  function showTab(key) {
+    document.querySelectorAll('[data-tab]').forEach(b => { b.classList.toggle('active', b.dataset.tab === key); b.setAttribute('aria-pressed', String(b.dataset.tab === key)); });
+    document.querySelectorAll('.salon-view').forEach(v => v.classList.toggle('active', v.id === 'salon-' + key));
+  }
+  function venueFields(prefix) {
+    return `<fieldset class="venue-fields"><legend>Salones y ocupacion</legend><div class="hall-choices" id="${prefix}Halls">${api.get().halls.map(h=>`<label class="hall-choice"><input type="checkbox" name="${prefix}Hall" value="${h.id}"><i class="hall-dot" style="background:${hallColors[h.id].accent}"></i><span data-hall-name="${h.id}">${esc(h.name)}</span></label>`).join('')}</div><div class="venue-mode" role="group" aria-label="Tipo de reserva"><label><input type="radio" name="${prefix}Mode" value="day" checked>Dia completo</label><label><input type="radio" name="${prefix}Mode" value="hours">Por horario</label></div><div class="field"><label for="${prefix}VenueEnd">Fecha de fin de ocupacion</label><input id="${prefix}VenueEnd" type="date" required></div><div id="${prefix}Hours" class="row" hidden><div class="field"><label for="${prefix}StartTime">Hora de inicio</label><input id="${prefix}StartTime" type="time"></div><div class="field"><label for="${prefix}EndTime">Hora de fin</label><input id="${prefix}EndTime" type="time"></div></div><div class="row"><div class="field"><label for="${prefix}Setup">Montaje (minutos)</label><input id="${prefix}Setup" type="number" min="0" max="2880" step="1" value="0" required></div><div class="field"><label for="${prefix}Cleanup">Limpieza (minutos)</label><input id="${prefix}Cleanup" type="number" min="0" max="2880" step="1" value="0" required></div></div></fieldset>`;
+  }
+  function readVenue(prefix) {
+    return {hallIds:[...document.querySelectorAll(`input[name="${prefix}Hall"]:checked`)].map(el=>el.value),venueMode:document.querySelector(`input[name="${prefix}Mode"]:checked`).value,venueEndDate:$(prefix+'VenueEnd').value,startTime:$(prefix+'StartTime').value,endTime:$(prefix+'EndTime').value,setupMinutes:$(prefix+'Setup').value,cleanupMinutes:$(prefix+'Cleanup').value};
+  }
+  function setVenue(prefix,e) {
+    document.querySelectorAll(`input[name="${prefix}Hall"]`).forEach(el=>el.checked=(e.hallIds||[]).includes(el.value));
+    document.querySelector(`input[name="${prefix}Mode"][value="${e.venueMode||'day'}"]`).checked=true;
+    $(prefix+'VenueEnd').value=e.venueEndDate||e.eventDate||'';
+    $(prefix+'StartTime').value=e.venueMode==='hours'?e.startTime:'';$(prefix+'EndTime').value=e.venueMode==='hours'?e.endTime:'';
+    $(prefix+'Setup').value=e.setupMinutes||0;$(prefix+'Cleanup').value=e.cleanupMinutes||0;syncVenueMode(prefix);
+  }
+  function syncVenueMode(prefix) {
+    const hours=document.querySelector(`input[name="${prefix}Mode"]:checked`).value==='hours';
+    $(prefix+'Hours').hidden=!hours;$(prefix+'StartTime').required=hours;$(prefix+'EndTime').required=hours;
+  }
+  function dialogSave(dialog,error,action) {
+    try{action();$(dialog).close();api.notify('Guardado correctamente.');}catch(e){$(error).textContent=e.message;}
+  }
+  function openAssignment(id) {
+    const e=api.get().events.find(e=>e.id===id);if(!e)return;
+    assigning=id;$('assignTitle').textContent=e.client;$('assignDate').textContent='Inicio del evento: '+longDate(e.eventDate);$('assignError').textContent='';setVenue('assign',e);$('assignDialog').showModal();
+  }
+  function refreshHallNames() {
+    const halls=api.get().halls,current=$('calendarHall').value;
+    $('calendarHall').innerHTML='<option value="">Todos los salones</option>'+halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'<option value="unassigned">Sin salon asignado</option>';
+    $('calendarHall').value=current;
+    document.querySelectorAll('[data-hall-name]').forEach(el=>el.textContent=halls.find(h=>h.id===el.dataset.hallName)?.name||'');
+    $('calendarHallLegend').innerHTML=halls.map(h=>`<span><i style="background:${hallColors[h.id].accent}"></i>${esc(h.name)}</span>`).join('')+'<span><i class="unassigned-dot"></i>Sin asignar</span>';
+  }
+  function period() { const a = $('salonDate').value || today(); return [a, $('salonEnd').value || a]; }
+  function selectOptions(el, items, label) {
+    const current = el.value;
+    el.innerHTML = items.map(p => `<option value="${esc(p.id)}">${esc(label(p))}</option>`).join('');
+    if (items.some(p => p.id === current)) el.value = current;
+  }
+  function refreshSelects() {
+    const items = api.get().items, [a,b] = period();
+    selectOptions($('salonProduct'), items, p => p.name + ' · disp. ' + api.available(p.id, a, b, editing));
+    selectOptions($('extraProduct'), items, p => p.name);
+    selectOptions($('moveProduct'), items, p => p.name);
+  }
+  function loadExtras() {
+    const ex = api.extra($('extraProduct').value);
+    $('extraStatus').value = ex.status; $('extraMin').value = ex.minQty; $('extraCost').value = ex.cost;
+  }
+  function refresh() {
+    refreshHallNames();refreshSelects(); loadExtras(); renderDraft(); renderEvents(); renderReturns(); renderAlerts(); renderStock(); renderMovements(); renderReports(); renderCalendar();
+  }
+  const localDate = key => { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d || 1,12); };
+  const dateKey = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const longDate = key => localDate(key).toLocaleDateString('es-BO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  function calendarEvents() {
+    const filter = $('calendarFilter').value,hall=$('calendarHall').value;
+    return api.get().events.filter(e=>e.status!=='cancelado'&&matchesHall(e,hall)&&(!filter || (filter==='occupied'?api.occupiesHall(e):filter==='finished'?['devuelto','cerrado'].includes(e.status):e.status===filter))).sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.client.localeCompare(b.client,'es'));
+  }
+  const matchesHall=(e,hall)=>!hall||(hall==='unassigned'?!e.hallIds.length:e.hallIds.includes(hall));
+  function calendarChip(e) {
+    const color=hallColors[e.hallIds[0]]||{accent:'#7d8791',tint:'#eef0f2',ink:'#56616a'};
+    return `<span class="calendar-event venue-event ${e.status==='cotizacion'?'quote-chip':''}" style="--hall-accent:${color.accent};--hall-tint:${color.tint};--hall-ink:${color.ink}" title="${esc(e.client+' | '+hallNames(e)+' | '+venueLabel(e)+' | '+statuses[e.status])}">${e.status==='cotizacion'?'Cot. ':''}${esc(e.client)}</span>`;
+  }
+  function renderHallStatus() {
+    const all=api.get(),booked=all.events.filter(e=>api.occupiesHall(e)&&api.onVenueDay(e,selectedDay)),unknown=booked.filter(e=>!e.hallIds.length);
+    const dayStart=Date.parse(selectedDay+'T00:00:00Z')/60000;
+    $('calendarHallStatus').innerHTML=all.halls.map(h=>{
+      const list=booked.filter(e=>e.hallIds.includes(h.id));
+      const label=list.length?(list.some(e=>{const span=api.venueRange(e);return span.start<=dayStart&&span.end>=dayStart+1440;})?'Reservado todo el dia':list.length+' reserva'+(list.length>1?'s':'')+' por horario'):unknown.length?'Por revisar':'Sin reservas';
+      return `<div class="hall-day-status"><span><i class="hall-dot" style="background:${hallColors[h.id].accent}"></i>${esc(h.name)}</span><strong class="${list.length?'hall-busy':unknown.length?'invalid':'hall-free'}">${label}</strong></div>`;
+    }).join('')+(unknown.length?`<p class="salon-muted invalid">${unknown.length} evento(s) sin salon asignado para este dia.</p>`:'');
+  }
+  function moveMonth(delta) {
+    const d = localDate(calendarMonth+'-01'); d.setMonth(d.getMonth()+delta);
+    const key = dateKey(d);
+    if(key<'1900-01-01'||key>'2199-12-31')return;
+    calendarMonth=key.slice(0,7); selectedDay=calendarMonth===today().slice(0,7)?today():calendarMonth+'-01'; renderCalendar();
+  }
+  function selectDay(key,focus=false) {
+    if(key<'1900-01-01'||key>'2199-12-31')return;
+    selectedDay=key;calendarMonth=key.slice(0,7);renderCalendar();
+    if(focus)document.querySelector(`[data-calendar-date="${key}"]`).focus();
+  }
+  function renderCalendar() {
+    const first = localDate(calendarMonth+'-01'), offset = (first.getDay()+6)%7;
+    const count = new Date(first.getFullYear(),first.getMonth()+1,0,12).getDate(), cells = Math.ceil((offset+count)/7)*7;
+    const all = api.get().events.filter(e=>e.status!=='cancelado'&&matchesHall(e,$('calendarHall').value)), events = calendarEvents();
+    const dayEventsFor=key=>events.filter(e=>api.onVenueDay(e,key));
+    $('calendarTitle').textContent=first.toLocaleDateString('es-BO',{month:'long',year:'numeric'});
+    $('calendarMonth').value=calendarMonth;
+    $('calendarPrev').disabled=calendarMonth==='1900-01'; $('calendarNext').disabled=calendarMonth==='2199-12';
+    const lastKey=calendarMonth+'-'+String(count).padStart(2,'0'),thisMonth=all.filter(e=>api.onVenueDay(e,calendarMonth+'-01')||api.onVenueDay(e,lastKey)||(e.eventDate>=calendarMonth+'-01'&&e.eventDate<=lastKey));
+    const occupied=Array.from({length:count},(_,i)=>calendarMonth+'-'+String(i+1).padStart(2,'0')).filter(key=>thisMonth.some(e=>api.occupiesHall(e)&&api.onVenueDay(e,key)));
+    $('agendaMetrics').innerHTML=`<span><strong>${thisMonth.length}</strong> eventos este mes</span><span><strong>${occupied.length}</strong> fechas con reserva</span><span><strong>${thisMonth.filter(e=>e.status==='cotizacion').length}</strong> cotizaciones</span>`;
+    const pending=api.get().events.filter(e=>api.occupiesHall(e)&&!e.hallIds.length&&((e.eventDate||e.date).slice(0,7)===calendarMonth));
+    $('calendarPending').hidden=!pending.length;$('calendarPending').innerHTML=pending.length?`${pending.length} evento(s) de este mes sin salon asignado. <button type="button" class="btn small" id="showUnassigned">Revisar eventos</button>`:'';
+    $('calendarDays').innerHTML=Array.from({length:cells},(_,index)=>{
+      const d=new Date(first.getFullYear(),first.getMonth(),index-offset+1,12), key=dateKey(d), dayEvents=dayEventsFor(key), current=key.slice(0,7)===calendarMonth;
+      const confirmed=dayEvents.filter(api.occupiesHall).length, quotes=dayEvents.filter(e=>e.status==='cotizacion').length;
+      const label=longDate(key)+'. '+(dayEvents.length?dayEvents.length+' eventos, '+confirmed+' confirmados.':'Sin eventos registrados.');
+      const hallSet=[...new Set(dayEvents.filter(api.occupiesHall).flatMap(e=>e.hallIds))];
+      return `<button type="button" class="calendar-day ${!current?'outside-month':''} ${key===today()?'is-today':''} ${key===selectedDay?'is-selected':''} ${confirmed?'has-booking':''}" data-calendar-date="${key}" aria-label="${esc(label)}" aria-pressed="${key===selectedDay}" ${key===today()?'aria-current="date"':''}><span class="day-number">${d.getDate()}</span><span class="day-events">${dayEvents.slice(0,2).map(calendarChip).join('')}${dayEvents.length>2?`<span class="calendar-more">+${dayEvents.length-2} mas</span>`:''}</span><span class="day-mobile-status">${confirmed?`<span class="mobile-booked">${confirmed} reserva${confirmed>1?'s':''}</span>`:quotes?`<span class="mobile-quote">${quotes} cotiz.</span>`:''}<span class="mobile-hall-dots">${hallSet.map(id=>`<i class="hall-dot" style="background:${hallColors[id].accent}"></i>`).join('')}</span></span></button>`;
+    }).join('');
+    $('calendarDayTitle').textContent=longDate(selectedDay);
+    renderHallStatus();const selected=dayEventsFor(selectedDay);
+    $('calendarDayEvents').innerHTML=selected.length?selected.map(e=>`<article class="salon-card agenda-event"><span class="event-status event-${e.status}">${statuses[e.status]}</span><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><p>Evento: ${esc(e.eventDate)}</p><p>${esc(venueLabel(e))}</p>${e.setupMinutes||e.cleanupMinutes?`<p class="salon-muted">Montaje: ${e.setupMinutes} min · Limpieza: ${e.cleanupMinutes} min</p>`:''}<p>${esc(e.type)}${e.place?' · '+esc(e.place):''}</p><p class="salon-muted">Responsable: ${esc(e.responsible||'Sin asignar')}</p><p class="salon-muted">Salida: ${esc(e.date)}<br>Devolucion: ${esc(e.returnDate)}</p><div class="salon-actions">${button('Ver evento','view',e.id)}${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id)}</div></article>`).join(''):'<div class="empty">Sin eventos registrados para esta fecha.</div>';
+  }
+  function newEventFromCalendar() {
+    if((editing||draft.length||$('salonClient').value)&&!confirm('Hay un evento en edicion. Reemplazar el formulario por uno nuevo?'))return;
+    resetEvent();
+    ['salonEventDate','salonDate','salonEnd'].forEach(key=>$(key).value=selectedDay);
+    setVenue('event',{eventDate:selectedDay,hallIds:api.get().halls.some(h=>h.id===$('calendarHall').value)?[$('calendarHall').value]:[]});
+    refreshSelects(); renderDraft(); showTab('events'); $('salonClient').focus();
+  }
+  function renderDraft() {
+    const [a,b] = period();
+    $('salonDraft').innerHTML = draft.length ? `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Cantidad</th><th>Disponible</th><th></th></tr></thead><tbody>${draft.map((i,n)=>`<tr><td>${esc(product(i.productId)?.name || 'Producto eliminado')}</td><td>${i.qty}</td><td>${api.available(i.productId,a,b,editing)}</td><td><button type="button" class="btn small danger" data-remove="${n}">Quitar</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin productos asignados.</div>';
+  }
+  function summary(e) {
+    return `<div><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><div class="meta"><span class="pill">Evento: ${esc(e.eventDate||e.date)}</span><span class="pill status-${e.status}">${statuses[e.status]}</span><span class="pill">Resp.: ${esc(e.responsible || 'Sin asignar')}</span></div><p class="salon-muted">${esc(venueLabel(e))}</p><p class="salon-muted">Material: ${esc(e.date)} al ${esc(e.returnDate)}</p>${e.place?`<p class="salon-muted">${esc(e.place)}</p>`:''}${e.notes?`<p class="salon-muted">${esc(e.notes)}</p>`:''}</div>`;
+  }
+  function button(label, action, id, cls = '') { return `<button type="button" class="btn small ${cls}" data-action="${action}" data-event="${esc(id)}">${label}</button>`; }
+  function readTable(e) {
+    if(!e.items.length)return '<p class="salon-muted">Sin materiales asignados.</p>';
+    return `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Sale</th><th>Regreso bueno</th><th>Dañado</th><th>Falta</th></tr></thead><tbody>${e.items.map(i=>`<tr><td>${esc(product(i.productId)?.name || 'Producto eliminado')}</td><td>${i.qty}</td><td>${i.returned}</td><td>${i.damaged}</td><td>${i.missing}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function renderEvents() {
+    const search = $('salonEventSearch').value.toLocaleLowerCase(), filter = $('salonEventFilter').value;
+    const events = api.get().events.filter(e => (!filter || e.status === filter) && [e.client,e.responsible,e.place,e.notes,e.eventDate,e.date,e.returnDate,hallNames(e),...e.items.map(i=>product(i.productId)?.name || '')].join(' ').toLocaleLowerCase().includes(search)).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date));
+    $('salonEventList').innerHTML = events.length ? events.map(e=>`<article class="salon-card" data-event-entry="${esc(e.id)}"><div class="salon-mini">${summary(e)}<div class="salon-actions">${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${e.status==='cotizacion'?button('Reservar','reserve',e.id,'primary'):''}${['cotizacion','reservado'].includes(e.status)?button('Cancelar','cancel',e.id,'danger'):''}${e.status!=='cancelado'?button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id):''}${button('PDF entrega','pdf',e.id)}</div></div>${readTable(e)}</article>`).join('') : '<div class="empty">No hay eventos en esta vista.</div>';
+  }
+  function returnValues(e) { return returns.get(e.id) || e.items.map(i=>({ productId: i.productId, returned: String(i.returned), damaged: String(i.damaged) })); }
+  function renderReturns() {
+    const events = api.get().events.filter(e=>['reservado','en-evento','devuelto'].includes(e.status)).sort((a,b)=>a.date.localeCompare(b.date));
+    $('salonReturnList').innerHTML = events.length ? events.map(e => {
+      const editable = e.status === 'en-evento', values = returnValues(e);
+      const table = editable ? `<div class="table-wrap"><table class="salon-table return-table"><thead><tr><th>Producto</th><th>Sale</th><th>Regreso bueno</th><th>Dañado</th><th>Falta</th></tr></thead><tbody>${e.items.map((i,n)=>`<tr data-return-row="${n}"><td>${esc(product(i.productId)?.name || 'Producto eliminado')}</td><td>${i.qty}</td><td><input aria-label="Regreso bueno ${esc(product(i.productId)?.name || '')}" data-return="returned" data-index="${n}" data-event="${esc(e.id)}" type="number" min="0" max="${i.qty}" step="1" value="${esc(values[n].returned)}"></td><td><input aria-label="Dañado ${esc(product(i.productId)?.name || '')}" data-return="damaged" data-index="${n}" data-event="${esc(e.id)}" type="number" min="0" max="${i.qty}" step="1" value="${esc(values[n].damaged)}"></td><td><output data-missing>${Math.max(0,i.qty-Number(values[n].returned)-Number(values[n].damaged))}</output></td></tr>`).join('')}</tbody></table></div>` : readTable(e);
+      return `<article class="salon-card" data-return-card="${esc(e.id)}"><div class="salon-mini">${summary(e)}<div class="salon-actions">${e.status==='reservado'?button('Sale a evento','out',e.id,'blue'):''}${editable?button('Guardar conteo','count',e.id)+button('Confirmar devolucion','return',e.id,'primary'):''}${e.status==='devuelto'?button('Cerrar','close',e.id):''}${button('PDF devolucion','return-pdf',e.id)}</div></div>${table}<p class="return-feedback" aria-live="polite"></p></article>`;
+    }).join('') : '<div class="empty">No hay eventos pendientes de salida, devolucion o cierre.</div>';
+    events.filter(e=>e.status==='en-evento').forEach(e=>validateReturnUI(e));
+  }
+  function validateReturnUI(e) {
+    const card = document.querySelector(`[data-return-card="${e.id}"]`);
+    if (!card) return;
+    let invalid = false;
+    returnValues(e).forEach((v,n) => {
+      const row = card.querySelector(`[data-return-row="${n}"]`);
+      const good = Number(v.returned), bad = Number(v.damaged), qty = e.items[n].qty;
+      const valid = v.returned !== '' && v.damaged !== '' && Number.isInteger(good) && Number.isInteger(bad) && good >= 0 && bad >= 0 && good + bad <= qty;
+      row.querySelectorAll('input').forEach(input=>input.setAttribute('aria-invalid', String(!valid)));
+      row.querySelector('[data-missing]').textContent = valid ? qty-good-bad : 'Revisar';
+      invalid ||= !valid;
+    });
+    const feedback = card.querySelector('.return-feedback');
+    feedback.classList.toggle('invalid', invalid);
+    feedback.textContent = invalid ? 'Revisa las cantidades: regreso bueno + dañado no puede superar lo que salio.' : returns.has(e.id) ? 'Conteo sin guardar.' : '';
+    card.querySelectorAll('[data-action="count"], [data-action="return"]').forEach(b=>b.disabled=invalid);
+  }
+  function renderStock() {
+    const a = $('stockStart').value || today(), b = $('stockEnd').value || a;
+    if (b < a) { $('salonStockList').innerHTML = '<p class="invalid">La fecha final debe ser igual o posterior a la inicial.</p>'; return; }
+    const items = api.get().items;
+    $('salonStockList').innerHTML = items.length ? items.map(p=>{ const ex=api.extra(p.id); return `<article class="salon-card"><h3>${esc(p.name)}</h3><div class="meta"><span class="pill">Utilizable ${p.qty}</span><span class="pill qty">Disponible ${api.available(p.id,a,b)}</span><span class="pill">Reserva maxima ${api.reserved(p.id,a,b)}</span><span class="pill">${prodStatus[ex.status]}</span><span class="pill">Minimo ${ex.minQty}</span><span class="pill">Reposicion Bs ${money(ex.cost)}</span></div></article>`; }).join('') : '<div class="empty">No hay productos.</div>';
+  }
+  function alertBlocks() {
+    const d = api.get(), codes = new Map(), duplicates = [];
+    d.items.forEach(p=>{ if(p.code) { const key=p.code.toLocaleLowerCase(); if(codes.has(key)) duplicates.push(p.code); codes.set(key,p); } });
+    const conflict = d.events.filter(api.active).filter(e=>e.items.some(i=>i.qty>api.available(i.productId,e.date,e.returnDate,e.id)));
+    return [
+      ['Stock bajo',d.items.filter(p=>api.extra(p.id).minQty>0 && api.available(p.id)<=api.extra(p.id).minQty).map(p=>`${p.name}: disponible hoy ${api.available(p.id)}, minimo ${api.extra(p.id).minQty}.`)],
+      ['Reservas por revisar',conflict.map(e=>`${e.client}: hay productos sin disponibilidad suficiente para el periodo reservado.`)],
+      ['Salones pendientes',d.events.filter(e=>api.occupiesHall(e)&&!e.hallIds.length).map(e=>`${e.eventDate}: ${e.client} no tiene salon asignado.`)],
+      ['Cruces de salones',d.events.filter(e=>api.occupiesHall(e)&&api.hallConflicts(e).length).map(e=>`${e.eventDate}: ${e.client} tiene un cruce de horario en ${hallNames(e)}.`)],
+      ['Devoluciones vencidas',d.events.filter(e=>e.status==='en-evento'&&e.returnDate<today()).map(e=>`${e.client}: devolucion prevista ${e.returnDate}. El material sigue bloqueado.`)],
+      ['Productos bloqueados',d.items.filter(p=>api.extra(p.id).status!=='disponible').map(p=>`${p.name}: ${prodStatus[api.extra(p.id).status]}.`)],
+      ['Daños y faltantes',d.events.filter(e=>e.items.some(i=>i.damaged||i.missing)).map(e=>`${e.client}: dañado ${e.items.reduce((s,i)=>s+i.damaged,0)}, faltante ${e.items.reduce((s,i)=>s+i.missing,0)}.${e.settledAt?'':' Pendiente de confirmar devolucion.'}`)],
+      ['Cantidades por revisar',d.events.filter(e=>e.items.some(i=>i.returned+i.damaged>i.qty)).map(e=>`${e.client}: el conteo anterior supera la salida. Corrige antes de confirmar.`)],
+      ['Codigos repetidos',duplicates],
+      ['Eventos proximos',d.events.filter(e=>api.active(e)&&(e.eventDate||e.date)>=today()).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date)).slice(0,10).map(e=>`${e.eventDate||e.date}: ${e.client}.`)]
+    ];
+  }
+  function renderAlerts() { $('salonAlertList').innerHTML = alertBlocks().map(([label,lines])=>`<article class="salon-card ${lines.length?'has-alert':''}"><h3>${label}</h3>${lines.length?`<ul>${lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:'<p class="salon-muted">Sin novedades.</p>'}</article>`).join(''); }
+  function renderMovements() {
+    const query = $('moveSearch').value.toLocaleLowerCase();
+    const list = api.get().movements.filter(m=>[m.type,m.productName,m.eventName,m.detail,m.responsible].join(' ').toLocaleLowerCase().includes(query));
+    $('movementList').innerHTML = list.length ? `<div class="table-wrap"><table class="salon-table movement-table"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Producto / evento</th><th>Cambio</th><th>Saldo utilizable</th><th>Responsable / detalle</th></tr></thead><tbody>${list.map(m=>`<tr><td>${esc(new Date(m.at).toLocaleString('es-BO'))}</td><td>${esc(types[m.type] || m.type)}</td><td>${esc(m.productName)}${m.eventName?`<br>${esc(m.eventName)}`:''}</td><td>${m.delta>0?'+':''}${m.delta}</td><td>${m.productId?m.balance:'—'}</td><td>${esc(m.responsible)}<br>${esc(m.detail)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No hay movimientos en esta vista.</div>';
+  }
+  function renderReports() {
+    const d=api.get(), total=d.items.reduce((s,p)=>s+p.qty*api.extra(p.id).cost,0);
+    $('salonReportList').innerHTML=`<article class="salon-card"><h3>Inventario valorizado</h3><p>Bs ${money(total)}</p><button type="button" class="btn primary" data-report="inventory">PDF inventario</button></article><article class="salon-card"><h3>Eventos</h3><p>${d.events.filter(api.active).length} reservas y eventos activos</p><button type="button" class="btn primary" data-report="events">PDF eventos</button><button type="button" class="btn" data-report="csv">Exportar eventos CSV</button></article><article class="salon-card"><h3>Movimientos</h3><p>${d.movements.length} registros</p><button type="button" class="btn" data-report="movements">Exportar movimientos CSV</button></article>`;
+  }
+  function saveEvent(event) {
+    event.preventDefault();
+    const payload={id:editing||api.uid(),client:$('salonClient').value,eventDate:$('salonEventDate').value,...readVenue('event'),date:$('salonDate').value,returnDate:$('salonEnd').value,type:$('salonType').value,status:$('salonStatus').value,responsible:$('salonResp').value,place:$('salonPlace').value,notes:$('salonNotes').value,items:draft,updatedAt:Date.now()};
+    if(run(()=>api.saveEvent(payload))) resetEvent();
+  }
+  function resetEvent() { editing=null; draft=[]; $('salonEventForm').reset();syncVenueMode('event'); $('salonEventTitle').textContent='Nuevo evento'; refreshSelects(); renderDraft(); }
+  function editEvent(id) {
+    const e=api.get().events.find(e=>e.id===id);
+    if(!e) return;
+    editing=id; draft=JSON.parse(JSON.stringify(e.items));
+    [['salonClient',e.client],['salonEventDate',e.eventDate||e.date],['salonDate',e.date],['salonEnd',e.returnDate],['salonType',e.type],['salonStatus',e.status],['salonResp',e.responsible],['salonPlace',e.place],['salonNotes',e.notes]].forEach(([key,value])=>$(key).value=value);
+    setVenue('event',e);$('salonEventTitle').textContent='Editar evento'; refreshSelects(); renderDraft(); showTab('events'); $('salonClient').focus();
+  }
+  function eventPdf(id,kind) {
+    const e=api.get().events.find(e=>e.id===id); if(!e) return;
+    simplePdf(kind+' '+e.client,[`Evento: ${e.eventDate||e.date}`,`Salones: ${hallNames(e)} | ${venueLabel(e)}`,`Montaje: ${e.setupMinutes} min | Limpieza: ${e.cleanupMinutes} min`,`Salida: ${e.date} | Devolucion prevista: ${e.returnDate}`,`Estado: ${statuses[e.status]} | Responsable: ${e.responsible||'-'}`,`Lugar: ${e.place||'-'}`,`Notas: ${e.notes||'-'}`,'',...e.items.map(i=>`${product(i.productId)?.name||'Producto'} | Sale ${i.qty} | Bueno ${i.returned} | Dañado ${i.damaged} | Falta ${i.missing}`)]);
+  }
+  function csv(name,rows) {
+    const cell=v=>{let s=String(v??''); if(/^[=+@\-\t\r]/.test(s))s="'"+s; return '"'+s.replace(/"/g,'""')+'"';};
+    download(name+'-'+today()+'.csv','\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+  }
+  function report(kind) {
+    const d=api.get();
+    if(kind==='inventory') simplePdf('Inventario salon Elianne',d.items.flatMap(p=>[`${p.name} | Codigo ${p.code||'-'} | Utilizable ${p.qty} | Disponible hoy ${api.available(p.id)}`,`Estado ${prodStatus[api.extra(p.id).status]} | Reposicion Bs ${money(api.extra(p.id).cost)} | Ubicacion ${p.location||'-'}`]));
+    if(kind==='events') simplePdf('Eventos salon Elianne',d.events.flatMap(e=>[`${e.eventDate||e.date} | ${e.client} | ${statuses[e.status]}`,`${hallNames(e)} | ${venueLabel(e)}`,`Material: ${e.date} al ${e.returnDate}`,...e.items.map(i=>`  ${product(i.productId)?.name||'Producto'}: salida ${i.qty}, bueno ${i.returned}, dañado ${i.damaged}, falta ${i.missing}`)]));
+    if(kind==='csv') csv('eventos-elianne',[['Evento','Fecha del evento','Salones','Ocupacion','Fin de ocupacion','Montaje minutos','Limpieza minutos','Salida','Devolucion prevista','Estado','Producto','Sale','Regreso bueno','Dañado','Falta'],...d.events.flatMap(e=>(e.items.length?e.items:[null]).map(i=>[e.client,e.eventDate||e.date,hallNames(e),venueLabel(e),e.venueEndDate,e.setupMinutes,e.cleanupMinutes,e.date,e.returnDate,statuses[e.status],i?product(i.productId)?.name:'',i?.qty??'',i?.returned??'',i?.damaged??'',i?.missing??'']))]);
+    if(kind==='movements') csv('movimientos-elianne',[['Fecha','Movimiento','Producto','Evento','Cambio','Saldo utilizable','Responsable','Detalle'],...d.movements.map(m=>[new Date(m.at).toLocaleString('es-BO'),types[m.type]||m.type,m.productName,m.eventName,m.delta,m.balance,m.responsible,m.detail])]);
+  }
+  function click(event) {
+    const target=event.target.closest('button'); if(!target)return;
+    if(target.dataset.tab) showTab(target.dataset.tab);
+    if(target.dataset.closeDialog)$(target.dataset.closeDialog).close();
+    if(target.id==='hallConfigOpen'){
+      api.get().halls.forEach(h=>$('name-'+h.id).value=h.name);$('hallConfigError').textContent='';$('hallConfigDialog').showModal();
+    }
+    if(target.id==='showUnassigned'){$('calendarHall').value='unassigned';$('calendarFilter').value='';renderCalendar();}
+    if(target.dataset.calendarDate) selectDay(target.dataset.calendarDate,true);
+    if(target.id==='calendarPrev')moveMonth(-1);
+    if(target.id==='calendarNext')moveMonth(1);
+    if(target.id==='calendarToday')selectDay(today());
+    if(['calendarNew','calendarNewDay'].includes(target.id))newEventFromCalendar();
+    if(target.id==='salonClearEvent') resetEvent();
+    if(target.id==='salonAddItem') run(()=>{
+      const pid=$('salonProduct').value, qty=api.quantity($('salonQty').value);
+      if(!pid||!qty)throw new Error('Selecciona un producto y una cantidad mayor a cero.');
+      const existing=draft.find(i=>i.productId===pid);
+      if(existing) existing.qty=api.quantity(existing.qty+qty); else draft.push({productId:pid,qty,returned:0,damaged:0,missing:0});
+      $('salonQty').value=''; renderDraft();
+    },'Producto agregado al evento.');
+    if(target.dataset.remove!==undefined){draft.splice(Number(target.dataset.remove),1);renderDraft();}
+    if(target.id==='moveCsv') report('movements');
+    if(target.dataset.report) report(target.dataset.report);
+    const action=target.dataset.action,id=target.dataset.event;
+    if(!action)return;
+    if(action==='edit')editEvent(id);
+    if(action==='assign')openAssignment(id);
+    if(action==='view'){
+      const e=api.get().events.find(e=>e.id===id);if(!e)return;
+      $('salonEventSearch').value=e.client;$('salonEventFilter').value='';renderEvents();showTab('events');
+      document.querySelector(`[data-event-entry="${id}"]`)?.scrollIntoView({block:'nearest'});
+    }
+    if(action==='pdf'||action==='return-pdf')eventPdf(id,action==='pdf'?'Entrega':'Devolucion');
+    if(action==='cancel'&&confirm('Cancelar este evento y liberar sus reservas?'))run(()=>api.transition(id,'cancelado'));
+    if(action==='reserve')run(()=>api.transition(id,'reservado'));
+    if(action==='out'&&confirm('Confirmar la salida de los productos de este evento?'))run(()=>api.transition(id,'en-evento'),'Salida registrada.');
+    if(action==='close'&&confirm('Cerrar el evento? El historial quedara conservado.'))run(()=>api.transition(id,'cerrado'));
+    if(action==='count'||action==='return'){
+      const e=api.get().events.find(e=>e.id===id); if(!e)return;
+      const values=returnValues(e), finalize=action==='return';
+      if(finalize){
+        const damaged=values.reduce((s,i)=>s+Number(i.damaged),0),missing=e.items.reduce((s,i,n)=>s+i.qty-Number(values[n].returned)-Number(values[n].damaged),0);
+        if(!confirm(`Confirmar devolucion? Se retiraran del stock utilizable ${damaged} unidades dañadas y ${missing} faltantes. Esta devolucion quedara cerrada para edicion.`))return;
+      }
+      if(run(()=>api.saveReturn(id,values,finalize),finalize?'Devolucion confirmada y stock actualizado.':'Conteo guardado. El material sigue reservado.')){returns.delete(id);renderReturns();}
+    }
+  }
+  function input(event) {
+    const input=event.target;
+    if(input.matches('[data-return]')){
+      const e=api.get().events.find(e=>e.id===input.dataset.event); if(!e)return;
+      const values=returnValues(e); values[Number(input.dataset.index)][input.dataset.return]=input.value; returns.set(e.id,values); validateReturnUI(e); return;
+    }
+    if(input.id==='calendarMonth'&&/^\d{4}-\d{2}$/.test(input.value)&&input.value>='1900-01'&&input.value<='2199-12'){calendarMonth=input.value;selectedDay=calendarMonth+'-01';renderCalendar();}
+    if(['calendarFilter','calendarHall'].includes(input.id))renderCalendar();
+    if(input.name==='eventMode')syncVenueMode('event');
+    if(input.name==='assignMode')syncVenueMode('assign');
+    if(['salonDate','salonEnd','salonEventDate'].includes(input.id)) {
+      if(input.id==='salonEventDate'&&input.value){if(!$('salonDate').value)$('salonDate').value=input.value;if(!$('salonEnd').value||$('salonEnd').value<input.value)$('salonEnd').value=input.value;}
+      if(input.id==='salonDate'&&input.value){if(!$('salonEventDate').value)$('salonEventDate').value=input.value;if(!$('salonEnd').value||$('salonEnd').value<input.value)$('salonEnd').value=input.value;}
+      if(!$('eventVenueEnd').value||$('eventVenueEnd').value<$('salonEventDate').value)$('eventVenueEnd').value=$('salonEventDate').value;
+      refreshSelects();renderDraft();
+    }
+    if(['salonEventSearch','salonEventFilter'].includes(input.id))renderEvents();
+    if(['stockStart','stockEnd'].includes(input.id))renderStock();
+    if(input.id==='moveSearch')renderMovements();
+  }
+  window.addEventListener('beforeunload',event=>{if(returns.size){event.preventDefault();event.returnValue='';}});
+  init();
+})();
+</script></body>
+</html>
+
+
+
+
+

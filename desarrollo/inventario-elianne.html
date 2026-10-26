@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salon Elianne</title>
+    <style>
+      :root {
+        --bg: #eef2f5;
+        --panel: #ffffff;
+        --panel-2: #f8fafb;
+        --ink: #17212b;
+        --muted: #65727d;
+        --line: #d8e0e6;
+        --accent: #0f766e;
+        --accent-2: #174ea6;
+        --danger: #b3261e;
+        --soft: #e6f3f1;
+        --shadow: 0 18px 46px rgba(23, 33, 43, 0.1);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      h1, h2, h3, p { margin: 0; }
+
+      .app {
+        width: min(1380px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 24px 0 44px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        padding-bottom: 18px;
+      }
+
+      h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1; letter-spacing: 0; }
+      .subtitle { margin-top: 8px; color: var(--muted); font-size: 15px; }
+
+      .actions { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+      .btn {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--ink);
+        padding: 9px 13px;
+        font-weight: 750;
+      }
+      .btn.primary { border-color: var(--accent); background: var(--accent); color: white; }
+      .btn.blue { border-color: var(--accent-2); background: var(--accent-2); color: white; }
+      .btn.danger { border-color: #f1cbc8; background: #fff4f3; color: var(--danger); }
+      .btn:hover { filter: brightness(0.98); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+      }
+      .stat span { color: var(--muted); font-size: 13px; font-weight: 750; }
+      .stat strong { display: block; margin-top: 6px; font-size: 28px; line-height: 1; }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+      .panel-head {
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .panel-head h2 { font-size: 18px; }
+      .panel-head p { color: var(--muted); font-size: 14px; margin-top: 5px; }
+      .form { display: grid; gap: 13px; padding: 16px; }
+
+      label { color: var(--muted); font-size: 13px; font-weight: 800; }
+      .field { display: grid; gap: 7px; }
+      input, select, textarea {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--ink);
+        padding: 9px 11px;
+        outline: none;
+      }
+      textarea { min-height: 82px; resize: vertical; line-height: 1.5; }
+      input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14); }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+      .photo-box {
+        position: relative;
+        overflow: hidden;
+        min-height: 235px;
+        border: 1px dashed #a8b6bf;
+        border-radius: 8px;
+        background: var(--panel-2);
+        display: grid;
+        place-items: center;
+        text-align: center;
+      }
+      .photo-box input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+      .photo-preview {
+        width: 100%;
+        height: 235px;
+        object-fit: cover;
+        display: none;
+      }
+      .photo-empty { padding: 18px; color: var(--muted); }
+      .photo-empty strong { display: block; color: var(--ink); margin-bottom: 7px; }
+      .photo-tools { display: none; gap: 8px; }
+
+      .list-tools {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) 190px 150px;
+        gap: 10px;
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .inventory-list { padding: 16px; display: grid; gap: 10px; }
+      .empty {
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 28px;
+        color: var(--muted);
+        text-align: center;
+        background: var(--panel-2);
+      }
+
+      .item {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-2);
+        padding: 10px;
+      }
+      .thumb {
+        width: 92px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #e4e9ed;
+        border: 1px solid var(--line);
+      }
+      .item h3 { font-size: 17px; margin-bottom: 4px; }
+      .meta { display: flex; flex-wrap: wrap; gap: 7px; color: var(--muted); font-size: 13px; }
+      .pill { background: white; border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; }
+      .qty { color: var(--accent); font-weight: 850; }
+      .item-actions { display: flex; gap: 7px; }
+      .small { min-height: 36px; padding: 7px 10px; font-size: 13px; }
+
+      .notice {
+        margin-top: 12px;
+        padding: 11px 12px;
+        border-radius: 8px;
+        border: 1px solid #cce8e3;
+        background: var(--soft);
+        color: #16433f;
+        font-size: 14px;
+        display: none;
+      }
+
+      #printArea { display: none; }
+
+      @media (max-width: 920px) {
+        .topbar { align-items: stretch; flex-direction: column; }
+        .actions { justify-content: flex-start; }
+        .stats { grid-template-columns: repeat(2, 1fr); }
+        .layout { grid-template-columns: 1fr; }
+        .list-tools { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 560px) {
+        .app { width: min(100% - 18px, 1380px); padding-top: 14px; }
+        .row, .stats { grid-template-columns: 1fr; }
+        .item { grid-template-columns: 76px minmax(0, 1fr); }
+        .thumb { width: 76px; }
+        .item-actions { grid-column: 1 / -1; justify-content: flex-end; }
+      }
+
+      @media print {
+        body { background: white; }
+        .app { display: none; }
+        #printArea { display: block; color: #111; font-family: Arial, sans-serif; }
+        .print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+        .print-header h1 { font-size: 25px; }
+        .print-header p { font-size: 12px; color: #333; margin-top: 3px; }
+        .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .print-table th, .print-table td { border: 1px solid #777; padding: 6px; vertical-align: top; }
+        .print-table th { background: #eee; text-align: left; }
+        .print-photo { width: 58px; height: 58px; object-fit: cover; }
+        @page { size: A4; margin: 10mm; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="storageLoading" class="storage-loading" role="status">Abriendo datos del salon...</div>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>Salon Elianne</h1>
+          <p class="subtitle">Administracion de eventos</p>
+          <p id="saveState" class="save-state" role="status">Datos cargados</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="backupBtn" type="button">Respaldo completo</button>
+          <label class="btn" for="restoreInput">Restaurar</label>
+          <input id="restoreInput" type="file" accept="application/json" hidden />
+          <button class="btn blue" id="excelBtn" type="button">Exportar Excel .xlsx</button>
+          <button class="btn primary" id="pdfBtn" type="button">Descargar PDF</button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Resumen del inventario">
+        <div class="stat"><span>Productos</span><strong id="statProducts">0</strong></div>
+        <div class="stat"><span>Unidades</span><strong id="statUnits">0</strong></div>
+        <div class="stat"><span>Categorias</span><strong id="statCategories">0</strong></div>
+        <div class="stat"><span>Ultima edicion</span><strong id="statDate">-</strong></div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel">
+          <div class="panel-head">
+            <h2 id="formTitle">Nuevo producto</h2>
+            <p>Sube la foto y completa los datos principales.</p>
+          </div>
+          <form class="form" id="productForm">
+            <div class="field">
+              <label>Foto del producto</label>
+              <div class="photo-box" id="photoBox">
+                <img class="photo-preview" id="photoPreview" alt="Vista previa del producto" />
+                <div class="photo-empty" id="photoEmpty"><strong>Seleccionar foto</strong><span>JPG, PNG o foto del celular. Se reduce automaticamente para ahorrar espacio.</span></div>
+                <input id="photoInput" type="file" accept="image/*" />
+              </div>
+              <div class="photo-tools" id="photoTools"><button class="btn small" id="removePhotoBtn" type="button">Quitar foto</button></div>
+            </div>
+
+            <div class="field">
+              <label for="nameInput">Nombre del producto</label>
+              <input id="nameInput" autocomplete="off" required placeholder="Ej: Plato base dorado" />
+            </div>
+
+            <div class="row">
+              <div class="field">
+              <label for="qtyInput">Cantidad utilizable</label>
+                <input id="qtyInput" type="number" min="0" step="1" required placeholder="0" />
+              </div>
+              <div class="field">
+                <label for="unitInput">Unidad</label>
+                <select id="unitInput">
+                  <option>unidades</option>
+                  <option>juegos</option>
+                  <option>cajas</option>
+                  <option>paquetes</option>
+                  <option>metros</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="codeInput">Codigo</label>
+                <input id="codeInput" autocomplete="off" placeholder="Ej: VAJ-001" />
+              </div>
+              <div class="field">
+                <label for="categoryInput">Categoria</label>
+                <input id="categoryInput" list="categoryOptions" autocomplete="off" placeholder="Ej: Vajilla" />
+                <datalist id="categoryOptions">
+                  <option value="Vajilla"></option>
+                  <option value="Cristaleria"></option>
+                  <option value="Cubiertos"></option>
+                  <option value="Manteleria"></option>
+                  <option value="Decoracion"></option>
+                  <option value="Mobiliario"></option>
+                  <option value="Cocina"></option>
+                  <option value="Otros"></option>
+                </datalist>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="locationInput">Ubicacion</label>
+              <input id="locationInput" autocomplete="off" placeholder="Ej: Deposito A, estante 2" />
+            </div>
+
+            <div class="field">
+              <label for="notesInput">Notas</label>
+              <textarea id="notesInput" placeholder="Color, estado, observaciones o medidas."></textarea>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" type="submit" id="saveBtn">Guardar producto</button>
+              <button class="btn" type="button" id="clearBtn">Limpiar</button>
+            </div>
+            <div class="notice" id="notice"></div>
+          </form>
+        </aside>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Productos cargados</h2>
+            <p>Busca, filtra y corrige el inventario antes de exportar.</p>
+          </div>
+          <div class="list-tools">
+            <input id="searchInput" type="search" placeholder="Buscar por nombre, codigo o nota" />
+            <select id="filterInput"><option value="">Todas las categorias</option></select>
+            <select id="sortInput">
+              <option value="recent">Mas recientes</option>
+              <option value="name">Nombre A-Z</option>
+              <option value="category">Categoria</option>
+              <option value="quantity">Mayor cantidad</option>
+            </select>
+          </div>
+          <div class="inventory-list" id="inventoryList"></div>
+        </section>
+      </section>
+    </main>
+
+    <section id="printArea"></section>
+
+    <script>/* ELIANNE-CORE */</script>
+    <script>
+      const STORAGE_KEY = "elianneInventory.v1";
+      const state = { items: [], editingId: null, photo: "" };
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        form: $("productForm"), formTitle: $("formTitle"), photoInput: $("photoInput"), photoPreview: $("photoPreview"), photoEmpty: $("photoEmpty"), photoTools: $("photoTools"),
+        removePhotoBtn: $("removePhotoBtn"), name: $("nameInput"), qty: $("qtyInput"), unit: $("unitInput"), code: $("codeInput"), category: $("categoryInput"), location: $("locationInput"), notes: $("notesInput"),
+        list: $("inventoryList"), search: $("searchInput"), filter: $("filterInput"), sort: $("sortInput"), notice: $("notice"),
+        statProducts: $("statProducts"), statUnits: $("statUnits"), statCategories: $("statCategories"), statDate: $("statDate"), printArea: $("printArea")
+      };
+
+      function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+      function today() { return new Date().toLocaleDateString("es-BO", { year: "numeric", month: "2-digit", day: "2-digit" }); }
+      function clean(value) { return String(value || "").trim(); }
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+      }
+      function normalize(value) { return clean(value).toLocaleLowerCase("es"); }
+      function download(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+      function showNotice(text) {
+        els.notice.textContent = text;
+        els.notice.style.display = "block";
+        window.clearTimeout(showNotice.timer);
+        showNotice.timer = window.setTimeout(() => { els.notice.style.display = "none"; }, 2600);
+      }
+
+      function load() {
+        state.items = window.Elianne.get().items;
+      }
+      function save() {
+        load();
+        render();
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = reject;
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+              const maxSide = 900;
+              let { width, height } = img;
+              if (width > height && width > maxSide) { height = Math.round((height * maxSide) / width); width = maxSide; }
+              if (height >= width && height > maxSide) { width = Math.round((width * maxSide) / height); height = maxSide; }
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.82));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function updatePhotoPreview() {
+        if (state.photo) {
+          els.photoPreview.src = state.photo;
+          els.photoPreview.style.display = "block";
+          els.photoEmpty.style.display = "none";
+          els.photoTools.style.display = "flex";
+        } else {
+          els.photoPreview.removeAttribute("src");
+          els.photoPreview.style.display = "none";
+          els.photoEmpty.style.display = "block";
+          els.photoTools.style.display = "none";
+        }
+      }
+
+      function resetForm() {
+        state.editingId = null;
+        state.photo = "";
+        els.form.reset();
+        els.qty.readOnly = false;
+        els.qty.title = "";
+        els.unit.value = "unidades";
+        els.formTitle.textContent = "Nuevo producto";
+        $("saveBtn").textContent = "Guardar producto";
+        updatePhotoPreview();
+      }
+
+      function categories() {
+        return [...new Set(state.items.map((item) => clean(item.category)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+      }
+
+      function filteredItems() {
+        const query = normalize(els.search.value);
+        const category = normalize(els.filter.value);
+        let items = state.items.filter((item) => {
+          const text = normalize([item.name, item.code, item.category, item.location, item.notes].join(" "));
+          return (!query || text.includes(query)) && (!category || normalize(item.category) === category);
+        });
+        const sort = els.sort.value;
+        items.sort((a, b) => {
+          if (sort === "name") return clean(a.name).localeCompare(clean(b.name), "es");
+          if (sort === "category") return clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es");
+          if (sort === "quantity") return Number(b.qty || 0) - Number(a.qty || 0);
+          return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
+        });
+        return items;
+      }
+
+      function renderFilters() {
+        const current = els.filter.value;
+        els.filter.innerHTML = '<option value="">Todas las categorias</option>' + categories().map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join("");
+        els.filter.value = current;
+      }
+
+      function renderStats() {
+        const totalUnits = state.items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+        els.statProducts.textContent = state.items.length;
+        els.statUnits.textContent = totalUnits;
+        els.statCategories.textContent = categories().length;
+        const last = state.items.reduce((max, item) => Math.max(max, Number(item.updatedAt || 0)), 0);
+        els.statDate.textContent = last ? new Date(last).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" }) : "-";
+      }
+
+      function placeholderSvg(name) {
+        const initials = escapeHtml(clean(name).slice(0, 2).toUpperCase() || "IE");
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#e6f3f1"/><text x="80" y="92" text-anchor="middle" font-size="42" font-family="Arial" font-weight="700" fill="#0f766e">${initials}</text></svg>`)}`;
+      }
+
+      function renderList() {
+        const items = filteredItems();
+        if (!items.length) {
+          els.list.innerHTML = `<div class="empty">Todavia no hay productos en esta vista. Carga el primero desde el formulario.</div>`;
+          return;
+        }
+        els.list.innerHTML = items.map((item) => `
+          <article class="item">
+            <img class="thumb" src="${item.photo || placeholderSvg(item.name)}" alt="${escapeHtml(item.name)}" />
+            <div>
+              <h3>${escapeHtml(item.name)}</h3>
+              <div class="meta">
+                <span class="pill qty">${escapeHtml(item.qty)} ${escapeHtml(item.unit || "unidades")}</span>
+                <span class="pill">${escapeHtml(item.category || "Sin categoria")}</span>
+                <span class="pill">Codigo: ${escapeHtml(item.code || "-")}</span>
+                ${item.location ? `<span class="pill">${escapeHtml(item.location)}</span>` : ""}
+              </div>
+              ${item.notes ? `<p class="subtitle">${escapeHtml(item.notes)}</p>` : ""}
+            </div>
+            <div class="item-actions">
+              <button class="btn small" type="button" data-edit="${item.id}">Editar</button>
+              <button class="btn small danger" type="button" data-delete="${item.id}">Eliminar</button>
+            </div>
+          </article>`).join("");
+      }
+
+      function renderPrint() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        els.printArea.innerHTML = `
+          <div class="print-header">
+            <div><h1>Inventario Elianne</h1><p>Fecha: ${today()} | Productos: ${state.items.length}</p></div>
+            <div><p>Total unidades: ${state.items.reduce((sum, item) => sum + Number(item.qty || 0), 0)}</p><p>Categorias: ${categories().length}</p></div>
+          </div>
+          <table class="print-table">
+            <thead><tr><th>Foto</th><th>Producto</th><th>Codigo</th><th>Categoria</th><th>Cantidad</th><th>Ubicacion</th><th>Notas</th></tr></thead>
+            <tbody>${rows.map((item) => `<tr><td><img class="print-photo" src="${item.photo || placeholderSvg(item.name)}" /></td><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.code)}</td><td>${escapeHtml(item.category)}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${escapeHtml(item.location)}</td><td>${escapeHtml(item.notes)}</td></tr>`).join("")}</tbody>
+          </table>`;
+      }
+
+      function render() { renderFilters(); renderStats(); renderList(); renderPrint(); }
+
+      function editItem(id) {
+        const item = state.items.find((entry) => entry.id === id);
+        if (!item) return;
+        state.editingId = id;
+        state.photo = item.photo || "";
+        els.name.value = item.name || "";
+        els.qty.value = item.qty ?? "";
+        els.qty.readOnly = true;
+        els.qty.title = "Cambia las cantidades desde Movimientos para conservar el historial.";
+        els.unit.value = item.unit || "unidades";
+        els.code.value = item.code || "";
+        els.category.value = item.category || "";
+        els.location.value = item.location || "";
+        els.notes.value = item.notes || "";
+        els.formTitle.textContent = "Editar producto";
+        $("saveBtn").textContent = "Actualizar producto";
+        updatePhotoPreview();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      async function deleteItem(id) {
+        const item = state.items.find((entry) => entry.id === id);
+        if (!item) return;
+        if (!confirm(`Eliminar "${item.name}" del inventario?`)) return;
+        try {
+          await window.Elianne.deleteProduct(id);
+          if (state.editingId === id) resetForm();
+        } catch (error) { window.Elianne.notify(error.message, true); }
+      }
+
+      function xmlText(value) {
+        return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&apos;", '"': "&quot;" }[char]));
+      }
+
+      function utf8(value) { return new TextEncoder().encode(String(value)); }
+      function concatBytes(parts) {
+        const normalized = parts.map((part) => typeof part === "string" ? utf8(part) : part);
+        const total = normalized.reduce((sum, part) => sum + part.length, 0);
+        const out = new Uint8Array(total);
+        let offset = 0;
+        normalized.forEach((part) => { out.set(part, offset); offset += part.length; });
+        return out;
+      }
+      function u16(value) { return new Uint8Array([value & 255, (value >>> 8) & 255]); }
+      function u32(value) { return new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]); }
+
+      const crcTable = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i += 1) {
+          let c = i;
+          for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          table[i] = c >>> 0;
+        }
+        return table;
+      })();
+
+      function crc32(bytes) {
+        let crc = 0xffffffff;
+        for (let i = 0; i < bytes.length; i += 1) crc = crcTable[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+      }
+
+      function makeZip(files) {
+        const now = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+        const localParts = [];
+        const centralParts = [];
+        let offset = 0;
+
+        files.forEach((file) => {
+          const nameBytes = utf8(file.name);
+          const data = typeof file.data === "string" ? utf8(file.data) : file.data;
+          const crc = crc32(data);
+          const local = concatBytes([
+            u32(0x04034b50), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), nameBytes, data
+          ]);
+          localParts.push(local);
+          centralParts.push(concatBytes([
+            u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(dosTime), u16(dosDate), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), nameBytes
+          ]));
+          offset += local.length;
+        });
+
+        const central = concatBytes(centralParts);
+        const local = concatBytes(localParts);
+        const end = concatBytes([u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(central.length), u32(local.length), u16(0)]);
+        return concatBytes([local, central, end]);
+      }
+
+      function dataImage(photo) {
+        const match = String(photo || "").match(/^data:(image\/(?:jpeg|jpg|png));base64,(.+)$/i);
+        if (!match) return null;
+        const binary = atob(match[2]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return { mime: match[1].toLowerCase().replace("jpg", "jpeg"), bytes };
+      }
+
+      function exportExcel() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        const headers = ["Foto", "Producto", "Codigo", "Categoria", "Cantidad", "Unidad", "Ubicacion", "Notas"];
+        const cell = (ref, value) => `<c r="${ref}" t="inlineStr"><is><t>${xmlText(value)}</t></is></c>`;
+        const rowXml = (number, values, height) => `<row r="${number}" ht="${height}" customHeight="1">${values.map((value, index) => cell(String.fromCharCode(65 + index) + number, value)).join("")}</row>`;
+        const images = [];
+        const dataRows = rows.map((item, index) => {
+          const excelRow = index + 2;
+          const image = dataImage(item.photo);
+          if (image) {
+            const ext = image.mime.includes("png") ? "png" : "jpeg";
+            images.push({ ...image, excelRow, relId: `rIdImg${images.length + 1}`, name: `image${images.length + 1}.${ext}` });
+          }
+          return rowXml(excelRow, ["", item.name, item.code, item.category, item.qty, item.unit, item.location, item.notes], 58);
+        }).join("");
+
+        const sheetDrawing = images.length ? '<drawing r:id="rId1"/>' : "";
+        const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="13" customWidth="1"/><col min="2" max="2" width="28" customWidth="1"/><col min="3" max="3" width="14" customWidth="1"/><col min="4" max="4" width="18" customWidth="1"/><col min="5" max="6" width="12" customWidth="1"/><col min="7" max="8" width="24" customWidth="1"/></cols><sheetData>${rowXml(1, headers, 24)}${dataRows}</sheetData>${sheetDrawing}</worksheet>`;
+
+        const files = [
+          { name: "_rels/.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+          { name: "xl/workbook.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+          { name: "xl/_rels/workbook.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>' },
+          { name: "xl/worksheets/sheet1.xml", data: sheetXml }
+        ];
+
+        if (images.length) {
+          files.push({ name: "xl/worksheets/_rels/sheet1.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>' });
+          files.push({ name: "xl/drawings/drawing1.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${images.map((image, index) => `<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>95250</xdr:colOff><xdr:row>${image.excelRow - 1}</xdr:row><xdr:rowOff>95250</xdr:rowOff></xdr:from><xdr:ext cx="610000" cy="610000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index + 1}" name="Foto ${index + 1}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${image.relId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`).join("")}</xdr:wsDr>` });
+          files.push({ name: "xl/drawings/_rels/drawing1.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${images.map((image) => `<Relationship Id="${image.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${image.name}"/>`).join("")}</Relationships>` });
+          images.forEach((image) => files.push({ name: `xl/media/${image.name}`, data: image.bytes }));
+        }
+
+        const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${images.some((image) => image.mime.includes("jpeg")) ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : ""}${images.some((image) => image.mime.includes("png")) ? '<Default Extension="png" ContentType="image/png"/>' : ""}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${images.length ? '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ""}</Types>`;
+        files.unshift({ name: "[Content_Types].xml", data: contentTypes });
+        download(`inventario-elianne-${new Date().toISOString().slice(0, 10)}.xlsx`, makeZip(files), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+
+      function cp1252Hex(text) {
+        const map = { "€": 128, "‚": 130, "ƒ": 131, "„": 132, "…": 133, "†": 134, "‡": 135, "ˆ": 136, "‰": 137, "Š": 138, "‹": 139, "Œ": 140, "Ž": 142, "‘": 145, "’": 146, "“": 147, "”": 148, "•": 149, "–": 150, "—": 151, "˜": 152, "™": 153, "š": 154, "›": 155, "œ": 156, "ž": 158, "Ÿ": 159 };
+        const bytes = [];
+        String(text || "").replace(/[\r\n]+/g, " ").split("").forEach((char) => {
+          const code = char.charCodeAt(0);
+          bytes.push(code <= 255 ? code : (map[char] || 63));
+        });
+        return `<${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}>`;
+      }
+
+      function jpegSize(bytes) {
+        let offset = 2;
+        while (offset < bytes.length) {
+          if (bytes[offset] !== 255) { offset += 1; continue; }
+          const marker = bytes[offset + 1];
+          const length = (bytes[offset + 2] << 8) + bytes[offset + 3];
+          if (marker >= 192 && marker <= 195) return { width: (bytes[offset + 7] << 8) + bytes[offset + 8], height: (bytes[offset + 5] << 8) + bytes[offset + 6] };
+          offset += 2 + length;
+        }
+        return { width: 1, height: 1 };
+      }
+
+      function exportPdf() {
+        const rows = state.items.slice().sort((a, b) => clean(a.category).localeCompare(clean(b.category), "es") || clean(a.name).localeCompare(clean(b.name), "es"));
+        const objects = [];
+        const setObj = (id, chunks) => { objects[id] = Array.isArray(chunks) ? chunks : [chunks]; };
+        const catalogId = 1, pagesId = 2, fontId = 3, boldId = 4;
+        let nextId = 4;
+        const imageRefs = new Map();
+
+        rows.forEach((item) => {
+          const image = dataImage(item.photo);
+          if (!image || !image.mime.includes("jpeg")) return;
+          const objId = nextId += 1;
+          const name = `Im${imageRefs.size + 1}`;
+          const size = jpegSize(image.bytes);
+          setObj(objId, [`<< /Type /XObject /Subtype /Image /Width ${size.width} /Height ${size.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`, image.bytes, "\nendstream"]);
+          imageRefs.set(item.id, { objId, name });
+        });
+
+        setObj(fontId, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        setObj(boldId, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+
+        const pageIds = [];
+        const rowsPerPage = 9;
+        const pageCount = Math.max(1, Math.ceil(rows.length / rowsPerPage));
+        const cols = [36, 94, 218, 286, 360, 415, 485];
+        const widths = [58, 124, 68, 74, 55, 70, 74];
+        const labels = ["Foto", "Producto", "Codigo", "Categoria", "Cant.", "Ubicacion", "Notas"];
+        const limits = [0, 24, 13, 14, 10, 14, 18];
+
+        const addText = (commands, text, x, y, size, bold = false) => commands.push(`BT /F${bold ? 2 : 1} ${size} Tf ${x} ${y} Td ${cp1252Hex(text)} Tj ET`);
+        const wrap = (text, limit, maxLines = 2) => {
+          const words = clean(text).split(/\s+/).filter(Boolean);
+          const lines = [];
+          let current = "";
+          words.forEach((word) => {
+            const test = current ? `${current} ${word}` : word;
+            if (test.length > limit && current) { lines.push(current); current = word; }
+            else current = test;
+          });
+          if (current) lines.push(current);
+          return lines.slice(0, maxLines).map((line, index, arr) => index === arr.length - 1 && lines.length > maxLines ? `${line.slice(0, Math.max(0, limit - 1))}...` : line);
+        };
+
+        for (let page = 0; page < pageCount; page += 1) {
+          const commands = ["0.75 w"];
+          addText(commands, "Inventario Elianne", 36, 808, 20, true);
+          addText(commands, `Fecha: ${today()}   Productos: ${rows.length}   Unidades: ${rows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}`, 36, 786, 9);
+          addText(commands, `Pagina ${page + 1} de ${pageCount}`, 500, 808, 9);
+          commands.push("36 778 m 559 778 l S");
+
+          labels.forEach((label, i) => { commands.push(`${cols[i]} 748 ${widths[i]} 22 re S`); addText(commands, label, cols[i] + 4, 756, 8, true); });
+          const pageRows = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+          pageRows.forEach((item, index) => {
+            const top = 748 - 22 - index * 72;
+            const bottom = top - 70;
+            widths.forEach((width, i) => commands.push(`${cols[i]} ${bottom} ${width} 70 re S`));
+            const image = imageRefs.get(item.id);
+            if (image) commands.push(`q 48 0 0 48 ${cols[0] + 5} ${bottom + 11} cm /${image.name} Do Q`);
+            const values = ["", item.name, item.code, item.category, `${item.qty} ${item.unit}`, item.location, item.notes];
+            values.forEach((value, i) => {
+              if (i === 0) return;
+              wrap(value, limits[i], i === 6 ? 3 : 2).forEach((line, lineIndex) => addText(commands, line, cols[i] + 4, top - 14 - lineIndex * 10, 7.5, i === 1));
+            });
+          });
+
+          const usedImages = pageRows.map((item) => imageRefs.get(item.id)).filter(Boolean);
+          const xObjects = usedImages.length ? `/XObject << ${usedImages.map((image) => `/${image.name} ${image.objId} 0 R`).join(" ")} >>` : "";
+          const content = commands.join("\n");
+          const contentId = nextId += 1;
+          const pageId = nextId += 1;
+          setObj(contentId, `<< /Length ${utf8(content).length} >>\nstream\n${content}\nendstream`);
+          setObj(pageId, `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> ${xObjects} >> /Contents ${contentId} 0 R >>`);
+          pageIds.push(pageId);
+        }
+
+        setObj(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
+        setObj(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+        const maxId = objects.length - 1;
+        const parts = [];
+        const offsets = new Array(maxId + 1).fill(0);
+        let position = 0;
+        const add = (part) => { const bytes = typeof part === "string" ? utf8(part) : part; parts.push(bytes); position += bytes.length; };
+        add("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+        for (let id = 1; id <= maxId; id += 1) {
+          if (!objects[id]) continue;
+          offsets[id] = position;
+          add(`${id} 0 obj\n`);
+          objects[id].forEach(add);
+          add("\nendobj\n");
+        }
+        const xref = position;
+        add(`xref\n0 ${maxId + 1}\n0000000000 65535 f \n`);
+        for (let id = 1; id <= maxId; id += 1) add(`${String(offsets[id]).padStart(10, "0")} 00000 n \n`);
+        add(`trailer\n<< /Size ${maxId + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`);
+        download(`inventario-elianne-${new Date().toISOString().slice(0, 10)}.pdf`, concatBytes(parts), "application/pdf");
+      }
+
+      function backup() {
+        try {
+          download(`respaldo-completo-elianne-${window.Elianne.today()}.json`, JSON.stringify(window.Elianne.backup(), null, 2), "application/json;charset=utf-8");
+          window.Elianne.notify("Respaldo completo descargado: productos, fotos, eventos, estados, costos y movimientos.");
+          return true;
+        } catch(error) {window.Elianne.notify(error.message,true);return false;}
+      }
+
+      els.photoInput.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          state.photo = await compressImage(file);
+          updatePhotoPreview();
+          showNotice("Foto cargada correctamente.");
+        } catch {
+          showNotice("No se pudo cargar esa foto. Prueba con otra imagen.");
+        } finally {
+          els.photoInput.value = "";
+        }
+      });
+
+      els.removePhotoBtn.addEventListener("click", () => { state.photo = ""; updatePhotoPreview(); });
+      $("clearBtn").addEventListener("click", resetForm);
+      els.search.addEventListener("input", renderList);
+      els.filter.addEventListener("change", renderList);
+      els.sort.addEventListener("change", renderList);
+      $("excelBtn").addEventListener("click", exportExcel);
+      $("pdfBtn").addEventListener("click", exportPdf);
+      $("backupBtn").addEventListener("click", backup);
+      $("restoreInput").addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const imported = window.Elianne.prepareRestore(JSON.parse(reader.result));
+            if (!confirm("Restaurar este respaldo reemplazara los datos actuales. Se descargara primero una copia de los datos actuales. Continuar?")) return;
+            if(!backup())return;
+            await window.Elianne.restore(imported);
+            resetForm();
+            window.Elianne.notify("Respaldo restaurado correctamente.");
+          } catch (error) { window.Elianne.notify(error.message, true); }
+        };
+        reader.onerror = () => window.Elianne.notify("No se pudo leer el archivo de respaldo.", true);
+        reader.readAsText(file);
+        event.target.value = "";
+      });
+
+      els.form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = {
+          id: state.editingId || uid(),
+          name: clean(els.name.value),
+          qty: Number(els.qty.value || 0),
+          unit: clean(els.unit.value) || "unidades",
+          code: clean(els.code.value),
+          category: clean(els.category.value) || "Otros",
+          location: clean(els.location.value),
+          notes: clean(els.notes.value),
+          photo: state.photo,
+          updatedAt: Date.now()
+        };
+        if (!payload.name) { els.name.focus(); return; }
+        try {
+          await window.Elianne.upsertProduct(payload);
+          resetForm();
+          window.Elianne.notify("Producto guardado.");
+        } catch (error) { window.Elianne.notify(error.message, true); }
+      });
+
+      els.list.addEventListener("click", (event) => {
+        const edit = event.target.closest("[data-edit]");
+        const remove = event.target.closest("[data-delete]");
+        if (edit) editItem(edit.dataset.edit);
+        if (remove) deleteItem(remove.dataset.delete);
+      });
+
+      window.addEventListener("elianne:change", save);
+      load();
+      render();
+      updatePhotoPreview();
+    </script>
+  <!-- SALON-V2-START -->
+<style>
+  .salon-module{margin-top:18px}.salon-tabs{display:flex;gap:8px;overflow-x:auto;padding:0 0 12px}.salon-tab.active{background:#142431;color:#fff;border-color:#142431}.salon-view{display:none}.salon-view.active{display:block}.salon-grid{display:grid;grid-template-columns:minmax(320px,430px) minmax(0,1fr);gap:15px;align-items:start}.salon-list{padding:15px;display:grid;gap:10px}.salon-card{border:1px solid var(--line);border-radius:8px;background:var(--panel-2);padding:11px}.salon-card h3{font-size:17px;margin-bottom:6px}.salon-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:8px;overflow:hidden}.salon-table th,.salon-table td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}.salon-table th{color:var(--muted);font-size:12px}.salon-table input{min-height:34px;padding:6px 8px}.salon-assign{display:grid;grid-template-columns:minmax(180px,1fr) 90px auto;gap:8px;align-items:end}.salon-alerts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.salon-alert{border-left:5px solid #a66400}.salon-alert.redline{border-left-color:#bd463a}.salon-alert.greenline{border-left-color:#197153}.salon-muted{color:var(--muted);font-size:14px}.salon-mini{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.salon-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}@media(max-width:920px){.salon-grid,.salon-alerts{grid-template-columns:1fr}.salon-assign{grid-template-columns:1fr}.salon-mini{display:grid}}
+</style>
+<script>
+(()=>{
+const INV='elianneInventory.v1',EV='elianneSalonEvents.v1',EX='elianneSalonExtras.v1';
+const active=new Set(['reservado','en-evento']);
+const statusLabel={cotizacion:'Cotizacion',reservado:'Reservado','en-evento':'En evento',devuelto:'Devuelto',cerrado:'Cerrado',cancelado:'Cancelado'};
+const prodStatus={disponible:'Disponible',limpieza:'En limpieza',mantenimiento:'Mantenimiento',danado:'Dañado',baja:'Baja'};
+let events=[],extras={},draft=[],editing=null;
+const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)],clean=v=>String(v||'').trim(),num=v=>Math.max(0,Number(v||0)),uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8),today=()=>new Date().toISOString().slice(0,10),norm=v=>clean(v).toLocaleLowerCase('es'),money=v=>num(v).toLocaleString('es-BO',{minimumFractionDigits:2,maximumFractionDigits:2}),esc=v=>String(v||'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function products(){try{return JSON.parse(localStorage.getItem(INV)||'[]')}catch{return[]}}
+function load(){try{events=JSON.parse(localStorage.getItem(EV)||'[]')}catch{events=[]}try{extras=JSON.parse(localStorage.getItem(EX)||'{}')}catch{extras={}}}
+function save(){localStorage.setItem(EV,JSON.stringify(events));localStorage.setItem(EX,JSON.stringify(extras));renderSalon()}
+function product(id){return products().find(p=>p.id===id)}function extra(id){return extras[id]||{status:'disponible',minQty:0,cost:0}}
+function reserved(productId,except=null){return events.filter(e=>active.has(e.status)&&e.id!==except).flatMap(e=>e.items||[]).filter(i=>i.productId===productId).reduce((s,i)=>s+num(i.qty),0)}
+function available(p,except=null){if(!p)return 0;const ex=extra(p.id);if((ex.status||'disponible')!=='disponible')return 0;return Math.max(0,num(p.qty)-reserved(p.id,except))}
+function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
+function simplePdf(title,rows){const enc=new TextEncoder,hex=t=>`<${[...String(t||'')].map(ch=>{const c=ch.charCodeAt(0);return(c<=255?c:63).toString(16).padStart(2,'0')}).join('')}>`,pages=[];for(let i=0;i<Math.max(rows.length,1);i+=52)pages.push(rows.slice(i,i+52));const objects=[];let next=4;objects[1]='<< /Type /Catalog /Pages 2 0 R >>';objects[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';const pageIds=[];pages.forEach((page,idx)=>{const text=[`BT /F1 18 Tf 36 806 Td ${hex(title)} Tj ET`,`BT /F1 9 Tf 36 786 Td ${hex('Fecha: '+today()+'   Pagina '+(idx+1)+' de '+pages.length)} Tj ET`,'36 778 m 559 778 l S',...page.map((r,i)=>`BT /F1 9 Tf 40 ${758-i*14} Td ${hex(r.slice(0,118))} Tj ET`)].join('\n'),cid=next++,pid=next++;objects[cid]=`<< /Length ${enc.encode(text).length} >>\nstream\n${text}\nendstream`;objects[pid]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cid} 0 R >>`;pageIds.push(pid)});objects[2]=`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;let parts=[],offsets=[],pos=0;const add=s=>{const b=enc.encode(s);parts.push(b);pos+=b.length};add('%PDF-1.4\n');for(let i=1;i<objects.length;i++){if(!objects[i])continue;offsets[i]=pos;add(`${i} 0 obj\n${objects[i]}\nendobj\n`)}const xref=pos;add(`xref\n0 ${objects.length}\n0000000000 65535 f \n`);for(let i=1;i<objects.length;i++)add(`${String(offsets[i]||0).padStart(10,'0')} 00000 n \n`);add(`trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);const total=parts.reduce((s,b)=>s+b.length,0),out=new Uint8Array(total);let off=0;parts.forEach(b=>{out.set(b,off);off+=b.length});download(title.toLowerCase().replace(/\s+/g,'-')+'-'+today()+'.pdf',out,'application/pdf')}
+function init(){load();const app=q('.app');if(!app)return;app.insertAdjacentHTML('beforeend',`<section class="salon-module panel"><div class="panel-head"><div><h2>Modulo de salon de eventos</h2><p>Reservas por evento, salidas, devoluciones, daños, faltantes y alertas.</p></div></div><div class="body"><nav class="salon-tabs"><button class="btn salon-tab active" data-salon="events">Eventos</button><button class="btn salon-tab" data-salon="returns">Salida y devolucion</button><button class="btn salon-tab" data-salon="alerts">Alertas</button><button class="btn salon-tab" data-salon="settings">Stock y costos</button><button class="btn salon-tab" data-salon="reports">Reportes</button></nav><div id="salon-events" class="salon-view active"><div class="salon-grid"><div class="panel" style="box-shadow:none"><div class="panel-head"><div><h2 id="salonEventTitle">Nuevo evento</h2><p>Asigna productos y cantidades.</p></div></div><form class="form" id="salonEventForm"><div class="field"><label>Cliente / evento</label><input id="salonClient" required placeholder="Ej: Boda Camila y Diego"></div><div class="row"><div class="field"><label>Fecha</label><input id="salonDate" type="date" required></div><div class="field"><label>Tipo</label><select id="salonType"><option>Boda</option><option>Cumpleaños</option><option>Corporativo</option><option>Bautizo</option><option>Graduacion</option><option>Otro</option></select></div></div><div class="row"><div class="field"><label>Estado</label><select id="salonStatus"><option value="cotizacion">Cotizacion</option><option value="reservado">Reservado</option><option value="en-evento">En evento</option><option value="devuelto">Devuelto</option><option value="cerrado">Cerrado</option><option value="cancelado">Cancelado</option></select></div><div class="field"><label>Responsable</label><input id="salonResp" placeholder="Quien entrega o recibe"></div></div><div class="field"><label>Lugar</label><input id="salonPlace" placeholder="Salon principal, domicilio, etc."></div><div class="field"><label>Agregar producto</label><div class="salon-assign"><select id="salonProduct"></select><input id="salonQty" type="number" min="1" step="1" placeholder="Cant."><button class="btn" id="salonAddItem" type="button">Agregar</button></div></div><div id="salonDraft" class="salon-list" style="padding:0"></div><div class="field"><label>Notas</label><textarea id="salonNotes"></textarea></div><div class="actions"><button class="btn primary">Guardar evento</button><button class="btn" id="salonClearEvent" type="button">Limpiar</button></div></form></div><div class="panel" style="box-shadow:none"><div class="panel-head"><div><h2>Eventos registrados</h2><p>Reservado y En evento descuentan disponibilidad.</p></div></div><div class="tools"><input id="salonEventSearch" type="search" placeholder="Buscar"><select id="salonEventFilter"><option value="">Todos</option><option value="cotizacion">Cotizacion</option><option value="reservado">Reservado</option><option value="en-evento">En evento</option><option value="devuelto">Devuelto</option><option value="cerrado">Cerrado</option><option value="cancelado">Cancelado</option></select><select id="salonEventSort"><option value="date">Fecha proxima</option><option value="recent">Mas recientes</option></select></div><div class="salon-list" id="salonEventList"></div></div></div></div><div id="salon-returns" class="salon-view"><div class="salon-list" id="salonReturnList"></div></div><div id="salon-alerts" class="salon-view"><div class="salon-alerts" id="salonAlertList"></div></div><div id="salon-settings" class="salon-view"><div class="salon-grid"><div class="panel" style="box-shadow:none"><div class="panel-head"><div><h2>Estado, minimo y costo</h2><p>Estos datos completan el inventario sin cambiar tus fotos.</p></div></div><form class="form" id="salonExtraForm"><div class="field"><label>Producto</label><select id="extraProduct"></select></div><div class="row"><div class="field"><label>Estado</label><select id="extraStatus"><option value="disponible">Disponible</option><option value="limpieza">En limpieza</option><option value="mantenimiento">Mantenimiento</option><option value="danado">Dañado</option><option value="baja">Baja</option></select></div><div class="field"><label>Alerta minima</label><input id="extraMin" type="number" min="0" step="1"></div></div><div class="field"><label>Costo reposicion</label><input id="extraCost" type="number" min="0" step="0.01"></div><button class="btn primary">Guardar datos</button></form></div><div class="panel" style="box-shadow:none"><div class="panel-head"><div><h2>Resumen por producto</h2><p>Disponibilidad real para eventos.</p></div></div><div class="salon-list" id="salonStockList"></div></div></div></div><div id="salon-reports" class="salon-view"><div class="report-grid" id="salonReportList"></div></div></div></section>`);bind();renderSalon()}
+function bind(){qa('.salon-tab').forEach(b=>b.addEventListener('click',()=>{qa('.salon-tab').forEach(x=>x.classList.toggle('active',x===b));qa('.salon-view').forEach(v=>v.classList.toggle('active',v.id==='salon-'+b.dataset.salon))}));q('#salonAddItem').addEventListener('click',addDraft);q('#salonClearEvent').addEventListener('click',resetEvent);q('#salonEventForm').addEventListener('submit',saveEvent);q('#salonExtraForm').addEventListener('submit',saveExtra);q('#extraProduct').addEventListener('change',loadExtraFields);['#salonEventSearch','#salonEventFilter','#salonEventSort'].forEach(s=>q(s).addEventListener('input',renderSalon));document.body.addEventListener('click',clickSalon);document.body.addEventListener('input',inputSalon)}
+function renderSalon(){if(!q('#salonProduct'))return;renderProductSelects();renderDraft();renderEvents();renderReturns();renderAlerts();renderSettings();renderReports()}
+function renderProductSelects(){const ps=products(),opts=ps.map(p=>`<option value="${p.id}">${esc(p.name)} - disp. ${available(p,editing)}</option>`).join('');q('#salonProduct').innerHTML=opts;q('#extraProduct').innerHTML=ps.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');loadExtraFields(false)}
+function loadExtraFields(){const id=q('#extraProduct')?.value,p=id?extra(id):{};q('#extraStatus').value=p.status||'disponible';q('#extraMin').value=num(p.minQty);q('#extraCost').value=num(p.cost)}
+function renderDraft(){const el=q('#salonDraft');if(!draft.length){el.innerHTML='<div class="empty">Sin productos asignados todavia.</div>';return}el.innerHTML=`<table class="salon-table"><thead><tr><th>Producto</th><th>Cant.</th><th>Disp.</th><th></th></tr></thead><tbody>${draft.map((i,n)=>{const p=product(i.productId);return`<tr><td>${esc(p?.name||'Producto eliminado')}</td><td>${num(i.qty)}</td><td>${available(p,editing)}</td><td><button class="btn small danger" data-salon-remove-draft="${n}">Quitar</button></td></tr>`}).join('')}</tbody></table>`}
+function renderEvents(){const search=norm(q('#salonEventSearch').value),filter=q('#salonEventFilter').value;let list=events.filter(e=>{const txt=norm([e.client,e.place,e.responsible,e.notes,...(e.items||[]).map(i=>product(i.productId)?.name||'')].join(' '));return(!search||txt.includes(search))&&(!filter||e.status===filter)});list.sort((a,b)=>q('#salonEventSort').value==='recent'?num(b.updatedAt)-num(a.updatedAt):clean(a.date).localeCompare(clean(b.date)));q('#salonEventList').innerHTML=list.length?list.map(eventCard).join(''):'<div class="empty">Todavia no hay eventos registrados.</div>'}
+function itemTable(e,edit){if(!(e.items||[]).length)return'<div class="empty">Sin productos.</div>';return`<table class="salon-table"><thead><tr><th>Producto</th><th>Sale</th><th>Regreso</th><th>Dañado</th><th>Falta</th></tr></thead><tbody>${e.items.map((i,n)=>{const p=product(i.productId);return`<tr><td>${esc(p?.name||'Producto eliminado')}<br><span class="salon-muted">${esc(p?.code||'')}</span></td><td>${num(i.qty)}</td><td>${edit?`<input data-salon-return="returned" data-event="${e.id}" data-index="${n}" type="number" min="0" value="${num(i.returned)}">`:num(i.returned)}</td><td>${edit?`<input data-salon-return="damaged" data-event="${e.id}" data-index="${n}" type="number" min="0" value="${num(i.damaged)}">`:num(i.damaged)}</td><td>${edit?`<input data-salon-return="missing" data-event="${e.id}" data-index="${n}" type="number" min="0" value="${num(i.missing)}">`:num(i.missing)}</td></tr>`}).join('')}</tbody></table>`}
+function eventCard(e){return`<article class="salon-card"><div class="salon-mini"><div><h3>${esc(e.client)}</h3><div class="meta"><span class="pill blue">${esc(e.date||'Sin fecha')}</span><span class="pill">${esc(e.type)}</span><span class="pill purple">${esc(statusLabel[e.status]||e.status)}</span><span class="pill">${(e.items||[]).reduce((s,i)=>s+num(i.qty),0)} piezas</span></div><p class="salon-muted">${esc([e.place,e.responsible,e.notes].filter(Boolean).join(' | '))}</p></div><div class="salon-actions"><button class="btn small" data-salon-edit="${e.id}">Editar</button><button class="btn small" data-salon-pdf="${e.id}">PDF entrega</button><button class="btn small danger" data-salon-delete="${e.id}">Eliminar</button></div></div>${itemTable(e,false)}</article>`}
+function renderReturns(){const list=events.filter(e=>['reservado','en-evento','devuelto'].includes(e.status)).sort((a,b)=>clean(a.date).localeCompare(clean(b.date)));q('#salonReturnList').innerHTML=list.length?list.map(e=>`<article class="salon-card"><div class="salon-mini"><div><h3>${esc(e.client)}</h3><div class="meta"><span class="pill blue">${esc(e.date)}</span><span class="pill amber">${esc(statusLabel[e.status])}</span><span class="pill">Resp.: ${esc(e.responsible||'-')}</span></div></div><div class="salon-actions"><button class="btn small blue" data-salon-status="en-evento" data-event="${e.id}">Sale a evento</button><button class="btn small primary" data-salon-status="devuelto" data-event="${e.id}">Marcar devuelto</button><button class="btn small" data-salon-status="cerrado" data-event="${e.id}">Cerrar</button><button class="btn small" data-salon-return-pdf="${e.id}">PDF devolucion</button></div></div>${itemTable(e,true)}</article>`).join(''):'<div class="empty">No hay eventos activos para salida o devolucion.</div>'}
+function alerts(){const ps=products(),low=ps.filter(p=>num(extra(p.id).minQty)>0&&available(p)<=num(extra(p.id).minQty)),unav=ps.filter(p=>(extra(p.id).status||'disponible')!=='disponible'),losses=events.flatMap(e=>(e.items||[]).filter(i=>num(i.damaged)||num(i.missing)).map(i=>({e,i,p:product(i.productId)}))),codes=ps.reduce((a,p)=>{const c=norm(p.code);if(c)(a[c]=a[c]||[]).push(p);return a},{}),dupes=Object.values(codes).filter(g=>g.length>1),now=new Date;now.setHours(0,0,0,0);const limit=new Date(now);limit.setDate(limit.getDate()+14),up=events.filter(e=>active.has(e.status)&&e.date&&new Date(e.date)>=now&&new Date(e.date)<=limit);return{low,unav,losses,dupes,up}}
+function renderAlerts(){const a=alerts(),blocks=[['Stock bajo','redline',a.low.map(p=>`${p.name}: disponible ${available(p)}, minimo ${num(extra(p.id).minQty)}`)],['En limpieza, mantenimiento o dañado','',a.unav.map(p=>`${p.name}: ${prodStatus[extra(p.id).status]}`)],['Daños o faltantes','redline',a.losses.map(x=>`${x.e.client}: ${x.p?.name||'Producto'} - dañado ${num(x.i.damaged)}, falta ${num(x.i.missing)}`)],['Codigos duplicados','',a.dupes.map(g=>`${g[0].code}: ${g.map(p=>p.name).join(', ')}`)],['Eventos proximos','greenline',a.up.map(e=>`${e.date}: ${e.client} (${statusLabel[e.status]})`)]];q('#salonAlertList').innerHTML=blocks.map(b=>`<article class="salon-card salon-alert ${b[1]}"><h3>${b[0]}</h3>${b[2].length?`<ul>${b[2].map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`:'<p class="salon-muted">Sin novedades.</p>'}</article>`).join('')}
+function renderSettings(){const ps=products();q('#salonStockList').innerHTML=ps.length?ps.map(p=>`<div class="salon-card"><h3>${esc(p.name)}</h3><div class="meta"><span class="pill green">Disp. ${available(p)} de ${num(p.qty)}</span><span class="pill blue">Reservado ${reserved(p.id)}</span><span class="pill">${esc(prodStatus[extra(p.id).status]||'Disponible')}</span><span class="pill">Min. ${num(extra(p.id).minQty)}</span><span class="pill">Rep. Bs ${money(extra(p.id).cost)}</span></div></div>`).join(''):'<div class="empty">Carga productos en el inventario principal.</div>'}
+function renderReports(){const total=products().reduce((s,p)=>s+num(p.qty)*num(extra(p.id).cost),0);q('#salonReportList').innerHTML=`<article class="salon-card"><h3>Inventario valorizado</h3><p class="salon-muted">Valor estimado: Bs ${money(total)}</p><br><button class="btn primary" data-salon-report="inventory">PDF inventario</button></article><article class="salon-card"><h3>Eventos activos</h3><p class="salon-muted">${events.filter(e=>active.has(e.status)).length} eventos reservados o en curso.</p><br><button class="btn primary" data-salon-report="events">PDF eventos</button></article><article class="salon-card"><h3>CSV eventos</h3><p class="salon-muted">Para revisar en Excel los eventos y devoluciones.</p><br><button class="btn blue" data-salon-report="csv">Exportar CSV</button></article>`}
+function addDraft(){const productId=q('#salonProduct').value,qty=num(q('#salonQty').value);if(!productId||!qty)return;const ex=draft.find(i=>i.productId===productId);if(ex)ex.qty+=qty;else draft.push({productId,qty,returned:0,damaged:0,missing:0});q('#salonQty').value='';renderDraft()}
+function resetEvent(){editing=null;draft=[];q('#salonEventForm').reset();q('#salonStatus').value='cotizacion';q('#salonEventTitle').textContent='Nuevo evento';renderDraft();renderProductSelects()}
+function saveEvent(e){e.preventDefault();const payload={id:editing||Date.now().toString(36)+Math.random().toString(36).slice(2,8),client:clean(q('#salonClient').value),date:q('#salonDate').value,type:q('#salonType').value,status:q('#salonStatus').value,responsible:clean(q('#salonResp').value),place:clean(q('#salonPlace').value),notes:clean(q('#salonNotes').value),items:draft.map(i=>({productId:i.productId,qty:num(i.qty),returned:num(i.returned),damaged:num(i.damaged),missing:num(i.missing)})),updatedAt:Date.now()};if(!payload.client||!payload.date)return;const over=payload.items.find(i=>num(i.qty)>available(product(i.productId),editing));if(active.has(payload.status)&&over&&!confirm('Hay un producto con cantidad mayor a la disponible. Guardar igual?'))return;if(editing)events=events.map(x=>x.id===editing?payload:x);else events.unshift(payload);save();resetEvent()}
+function saveExtra(e){e.preventDefault();const id=q('#extraProduct').value;if(!id)return;extras[id]={status:q('#extraStatus').value,minQty:num(q('#extraMin').value),cost:num(q('#extraCost').value)};save()}
+function editEvent(id){const e=events.find(x=>x.id===id);if(!e)return;editing=id;draft=JSON.parse(JSON.stringify(e.items||[]));q('#salonClient').value=e.client||'';q('#salonDate').value=e.date||'';q('#salonType').value=e.type||'Boda';q('#salonStatus').value=e.status||'cotizacion';q('#salonResp').value=e.responsible||'';q('#salonPlace').value=e.place||'';q('#salonNotes').value=e.notes||'';q('#salonEventTitle').textContent='Editar evento';renderDraft();renderProductSelects();q('[data-salon="events"]').click()}
+function eventPdf(id,kind){const e=events.find(x=>x.id===id);if(!e)return;simplePdf(`${kind} ${e.client}`,[`Cliente: ${e.client}`,`Fecha: ${e.date} | Tipo: ${e.type} | Estado: ${statusLabel[e.status]}`,`Lugar: ${e.place||'-'} | Responsable: ${e.responsible||'-'}`,`Notas: ${e.notes||'-'}`,'','Productos:',...(e.items||[]).map(i=>`${product(i.productId)?.name||'Producto'} | Sale ${num(i.qty)} | Regreso ${num(i.returned)} | Dañado ${num(i.damaged)} | Falta ${num(i.missing)}`)])}
+function inventoryPdf(){simplePdf('Inventario salon Elianne',products().flatMap(p=>[`${p.name} | Codigo ${p.code||'-'} | Categoria ${p.category||'-'} | Total ${num(p.qty)} ${p.unit} | Disponible ${available(p)} | Reservado ${reserved(p.id)}`,`Estado ${prodStatus[extra(p.id).status]||'Disponible'} | Minimo ${num(extra(p.id).minQty)} | Reposicion Bs ${money(extra(p.id).cost)} | Ubicacion ${p.location||'-'}`]))}
+function eventsPdf(){simplePdf('Eventos salon Elianne',events.flatMap(e=>[`${e.date||'Sin fecha'} | ${e.client} | ${statusLabel[e.status]||e.status} | ${e.type} | ${e.place||'-'}`,...(e.items||[]).map(i=>` - ${product(i.productId)?.name||'Producto'}: sale ${num(i.qty)}, regreso ${num(i.returned)}, dañado ${num(i.damaged)}, falta ${num(i.missing)}`)]))}
+function exportCsv(){const rows=[['Evento','Fecha','Estado','Producto','Sale','Regreso','Dañado','Falta'].join(',')];events.forEach(e=>(e.items||[]).forEach(i=>rows.push([e.client,e.date,statusLabel[e.status],product(i.productId)?.name||'',num(i.qty),num(i.returned),num(i.damaged),num(i.missing)].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','))));download('eventos-elianne-'+today()+'.csv',rows.join('\n'),'text/csv;charset=utf-8')}
+function clickSalon(e){const t=e.target;if(t.closest('[data-salon-remove-draft]')){draft.splice(Number(t.closest('[data-salon-remove-draft]').dataset.salonRemoveDraft),1);renderDraft()}if(t.closest('[data-salon-edit]'))editEvent(t.closest('[data-salon-edit]').dataset.salonEdit);if(t.closest('[data-salon-delete]')){const id=t.closest('[data-salon-delete]').dataset.salonDelete,ev=events.find(x=>x.id===id);if(ev&&confirm('Eliminar evento '+ev.client+'?')){events=events.filter(x=>x.id!==id);save()}}if(t.closest('[data-salon-status]')){const b=t.closest('[data-salon-status]'),ev=events.find(x=>x.id===b.dataset.event);if(ev){ev.status=b.dataset.salonStatus;ev.updatedAt=Date.now();save()}}if(t.closest('[data-salon-pdf]'))eventPdf(t.closest('[data-salon-pdf]').dataset.salonPdf,'Entrega');if(t.closest('[data-salon-return-pdf]'))eventPdf(t.closest('[data-salon-return-pdf]').dataset.salonReturnPdf,'Devolucion');if(t.closest('[data-salon-report]')){const r=t.closest('[data-salon-report]').dataset.salonReport;if(r==='inventory')inventoryPdf();if(r==='events')eventsPdf();if(r==='csv')exportCsv()}}
+function inputSalon(e){const input=e.target.closest('[data-salon-return]');if(!input)return;const ev=events.find(x=>x.id===input.dataset.event);if(!ev)return;const item=ev.items[Number(input.dataset.index)];item[input.dataset.salonReturn]=num(input.value);if(input.dataset.salonReturn==='returned'||input.dataset.salonReturn==='damaged'){item.missing=Math.max(0,num(item.qty)-num(item.returned)-num(item.damaged));const missing=input.closest('tr')?.querySelector('[data-salon-return="missing"]');if(missing&&document.activeElement!==missing)missing.value=item.missing}ev.updatedAt=Date.now();localStorage.setItem(EV,JSON.stringify(events));localStorage.setItem(EX,JSON.stringify(extras))}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+<!-- SALON-V2-END --></body>
+</html>
+
+
+
+
+
