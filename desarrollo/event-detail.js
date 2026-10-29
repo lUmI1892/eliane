@@ -83,12 +83,14 @@ function renderEventDetail(){
   $('detailTitle').textContent=e.client;
   $('detailMetrics').innerHTML=`<div><span>Fecha del evento</span><strong>${reportDate(e.eventDate)}</strong></div><div><span>Salon</span><strong>${hallDots(e)} ${esc(hallNames(e))}</strong></div><div><span>Invitados</span><strong>${guestsLabel(e)}</strong></div><div><span>Estado</span><strong>${statuses[e.status]}</strong></div>`;
   $('detailEdit').hidden=!['cotizacion','reservado'].includes(e.status)||detailEditing;
+  $('detailExpensesOpen').hidden=detailEditing;
   $('detailEditorHost').hidden=!detailEditing;$('detailReadOnly').hidden=detailEditing;
   $('detailData').innerHTML=`<dl class="detail-data">${[['Tipo',e.type],['Responsable',e.responsible||'Sin registrar'],['Lugar',e.place||'Sin registrar'],['Ocupacion',e.venueMode==='hours'?`${reportDate(e.eventDate)} ${e.startTime} a ${reportDate(e.venueEndDate)} ${e.endTime}`:`${reportDate(e.eventDate)} al ${reportDate(e.venueEndDate)} - dia completo`],['Montaje / limpieza',`${e.setupMinutes} min / ${e.cleanupMinutes} min`],['Salida prevista',reportDate(e.date)],['Salida registrada',e.departureDate?reportDate(e.departureDate):'Sin registrar'],['Devolucion prevista',reportDate(e.returnDate)]].map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>${e.notes?`<p class="detail-notes">${esc(e.notes)}</p>`:''}`;
   $('detailStateActions').innerHTML=(e.status==='cotizacion'?button('Confirmar reserva','reserve',e.id,'primary'):'')+(['cotizacion','reservado'].includes(e.status)?button('Cancelar evento','cancel',e.id,'danger'):'')+(e.status!=='cancelado'?button('Editar salones / horario','assign',e.id):'');
   const pending=eventDetailPending(e);$('detailPending').innerHTML=pending.length?`<ul>${pending.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:'<p class="salon-muted">Sin pendientes registrados.</p>';
   $('detailMaterials').innerHTML=e.items.length?`<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto / codigo</th><th>Solicitado</th><th>Propios</th><th>Externos</th></tr></thead><tbody>${e.items.map(i=>`<tr><td>${esc(product(i.productId)?.name||'Producto')}<br><span class="salon-muted">${esc(product(i.productId)?.code||'Sin codigo')}</span></td><td>${i.qty}</td><td>${api.ownQty(i)}</td><td>${i.qty-api.ownQty(i)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="salon-muted">Sin materiales asignados.</p>';
   $('detailRentals').innerHTML=detailRentalsHtml(e);
+  renderEventFinance(e);
   $('detailDocuments').innerHTML=button('PDF entrega','pdf',e.id)+button('PDF devolucion','return-pdf',e.id)+'<button type="button" class="btn small" id="detailHistoryExport">Historial CSV</button>';
   const card=document.querySelector(`#salonReturnList [data-return-card="${e.id}"]`),slot=$('detailReturnSlot');
   if(card){slot.replaceChildren(card);}

@@ -1,0 +1,64 @@
+const {chromium}=require('C:/Users/Marketing/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {pathToFileURL}=require('node:url');
+const out=path.join(__dirname,'verification','finance');fs.mkdirSync(out,{recursive:true});
+async function main(){
+ const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+ try{
+  const context=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1050}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));let accept=true;page.on('dialog',d=>accept?d.accept():d.dismiss());
+  const url=pathToFileURL(path.join(__dirname,'inventario-elianne.verificado.html')).href;await page.goto(url);await page.waitForFunction(()=>window.Elianne?.isReady());
+  await page.evaluate(async()=>{
+   const api=window.Elianne,day=api.today();await api.upsertProduct({id:'p1',name:'Copa clasica',code:'CR-1',category:'Cristaleria',qty:100,photo:''});
+   await api.saveEvent({id:'e1',client:'Boda Camila',responsible:'Lorena',eventDate:day,date:day,returnDate:day,hallIds:['hall-1'],status:'reservado',guestCount:300,items:[{productId:'p1',qty:100,external:{qty:20,cost:150,supplier:'Alquileres Rosa',deliveryDate:day,returnDate:day,status:'pendiente'}}]});
+   await api.saveEvent({id:'future',client:'Evento noviembre 2030',responsible:'Ana',eventDate:'2030-11-15',date:'2030-11-15',returnDate:'2030-11-15',hallIds:['hall-1','hall-2'],status:'reservado',items:[]});
+  });
+  const month=await page.evaluate(()=>window.Elianne.today().slice(0,7));
+  await page.locator('[data-tab="events"]').click();await page.locator('[data-event-entry="e1"] [data-fin-mode="expense"]').click();assert.equal(await page.locator('#financeDialogContext').innerText(),'Boda Camila');assert.equal(await page.locator('#salon-event-detail').isVisible(),false);await page.keyboard.press('Escape');await page.locator('[data-event-entry="e1"] [data-action="view"]').click();assert.equal(await page.locator('#detailTitle').innerText(),'Boda Camila');assert.equal(await page.locator('#detailExpenses [data-fin-mode="expense"]').count(),1);await page.locator('#detailBack').click();await page.locator('[data-tab="calendar"]').click();
+  await page.locator('[data-open-detail="e1"]').first().click();assert.ok((await page.locator('#detailFinance').innerText()).includes('Sin definir'));assert.ok((await page.locator('#detailFinance').innerText()).includes('Alquiler: Copa clasica'));
+  const button=mode=>page.locator(`#detailFinance [data-fin-mode="${mode}"]`).first();
+  await page.locator('#detailExpensesOpen').click();assert.equal(await page.locator('#detailExpensesTitle').evaluate(el=>el===document.activeElement),true);
+  async function submit(){await page.locator('#finBy').fill('Lorena');await page.locator('#financeForm button[type="submit"]').click();await page.waitForFunction(()=>!window.Elianne.saving());}
+  async function amount(mode,value){await button(mode).click();await page.locator('#finAmount').fill(value);}
+  await amount('contract','1000');await submit();assert.equal(await page.locator('#financeDialog').isVisible(),false);
+  await amount('extra','100');await page.locator('#finDescription').fill('50 invitados adicionales');await submit();
+  await amount('cash','700');await page.locator('#finMethod').selectOption('Transferencia');await page.locator('#finNote').fill('=SUM(1,1)');await submit();
+  await amount('expense','200');await page.locator('#finDescription').fill('Comida para invitados');await submit();
+  const food=page.locator('#detailFinance tr').filter({hasText:'Comida para invitados'});await food.locator('[data-fin-mode="cash"]').click();await page.locator('#finAmount').fill('80');await submit();
+  await button('expense-edit').click();await page.locator('#finAmount').fill('210');await submit();assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').expenses.find(x=>x.source==='manual').paid),8000);await button('expense-edit').click();await page.locator('#finAmount').fill('200');await submit();
+  const rental=page.locator('#detailFinance tr').filter({hasText:'Alquiler: Copa clasica'});await rental.locator('[data-fin-mode="cash"]').click();await page.locator('#finAmount').fill('50');await submit();
+  let f=await page.evaluate(()=>window.Elianne.financeEvent('e1'));assert.equal(f.total,110000);assert.equal(f.cost,35000);assert.equal(f.result,75000);assert.equal(f.received,70000);assert.equal(f.pending,40000);assert.equal(f.paid,13000);assert.equal(f.expenses.length,2);
+  console.log('PASS: calendar event finance, price/extras/customer advances, manual expenses and supplier rentals counted once with separate payments');
+  const expenseTotals=await page.locator('#detailExpenses .finance-metrics').innerText();assert.ok(expenseTotals.includes('350,00'));assert.ok(expenseTotals.includes('130,00'));assert.ok(expenseTotals.includes('220,00'));
+  await amount('cash','25');await page.locator('#finBy').fill('Ana');await page.evaluate(()=>{window.originalWrite=window.ElianneStorage.write;window.ElianneStorage.write=()=>Promise.reject(new Error('Simulated failure'));});await submit();
+  assert.equal(await page.locator('#financeDialog').isVisible(),true);assert.equal(await page.locator('#finAmount').inputValue(),'25');assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').received),70000);assert.ok((await page.locator('#financeMessage').innerText()).includes('No se pudo confirmar'));
+  await page.evaluate(()=>window.ElianneStorage.write=window.originalWrite);await submit();assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').received),72500);
+  const extraPaymentId=await page.evaluate(()=>window.Elianne.financeEvent('e1').cash.find(c=>c.amount===2500).id);
+  await page.locator(`#detailFinance [data-fin-record="${extraPaymentId}"]`).click();await page.locator('#finReason').fill('Registro de prueba duplicado');await submit();assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').received),70000);assert.ok((await page.locator('#detailFinance').innerText()).includes('Registro de prueba duplicado'));
+  await amount('cash','999');await page.locator('#finCashKind').selectOption('reembolso-cliente');await submit();assert.ok((await page.locator('#financeMessage').innerText()).includes('supera'));assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').received),70000);
+  accept=false;await page.locator('#financeDialogClose').click();assert.equal(await page.locator('#financeDialog').isVisible(),true);accept=true;await page.keyboard.press('Escape');assert.equal(await page.locator('#financeDialog').isVisible(),false);
+  console.log('PASS: failed writes retain forms with no ghost cash, retry adds once, audited voids, over-refunds blocked and unsaved close guard');
+  async function download(selector,name){const wait=page.waitForEvent('download');await page.locator(selector).click();const file=await wait;await file.saveAs(path.join(out,name));return fs.readFileSync(path.join(out,name));}
+  const eventPdf=await download('[data-fin-pdf-event="e1"]','event.pdf');assert.equal(eventPdf.subarray(0,8).toString(),'%PDF-1.4');
+  await page.locator('#detailBack').click();await page.locator('[data-tab="finance"]').click();assert.equal(await page.locator('#financeMonth').inputValue(),month);assert.ok((await page.locator('#financeCashMetrics').innerText()).includes('570,00'));
+  await page.locator('#salon-finance [data-fin-mode="expense"]').click();await page.locator('#finDescription').fill('Electricidad del mes');await page.locator('#finAmount').fill('50');await submit();
+  await page.locator('#financeGeneral [data-fin-mode="cash"]').click();await page.locator('#finAmount').fill('20');await submit();
+  f=await page.evaluate(month=>window.Elianne.financeMonth(month),month);assert.equal(f.net,55000);assert.equal(f.generalCost,5000);assert.equal(f.result,70000);
+  await page.locator('#financeHall').selectOption('hall-2');assert.equal(await page.locator('#financeEvents tbody tr').count(),0);assert.ok((await page.locator('#financeShared').innerText()).includes('50,00'));
+  await page.locator('#financeHall').selectOption('hall-1');assert.ok((await page.locator('#financeCashMetrics').innerText()).includes('570,00'));await page.locator('#financeHall').selectOption('');
+  await page.locator('#financeMonth').fill('2030-11');assert.ok((await page.locator('#financeForecastMetrics').innerText()).includes('Por completar'));await download('#financePdf','incomplete-month.pdf');await page.locator('[data-fin-open="future"]').click();assert.equal(await page.locator('#detailTitle').innerText(),'Evento noviembre 2030');await page.locator('#detailBack').click();assert.equal(await page.locator('#financeMonth').inputValue(),'2030-11');
+  await page.locator('#financeMonth').fill(month);const pdf=await download('#financePdf','monthly.pdf');assert.equal(pdf.subarray(0,8).toString(),'%PDF-1.4');const csv=(await download('#financeCsv','cash.csv')).toString('utf8');assert.ok(csv.includes("'=SUM(1,1)"));assert.ok(csv.includes('Electricidad del mes'));assert.equal(csv.includes('Registro de prueba duplicado'),false);
+  for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:1050});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(width<=600)assert.equal(await page.locator('#financeGeneral .finance-table').evaluate(el=>el.scrollWidth>el.clientWidth),false);await page.screenshot({path:path.join(out,`monthly-${width}.png`),fullPage:true});}
+  await page.locator('[data-fin-open="e1"]').click();await page.locator('#detailFinance').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.locator('#detailFinance').screenshot({path:path.join(out,'event-mobile.png')});
+  await amount('cash','125');await page.locator('#finAmount').fill('');await page.locator('#finAmount').pressSequentially('125');assert.equal(await page.locator('#finAmount').inputValue(),'125');assert.equal(await page.locator('#finAmount').evaluate(el=>el===document.activeElement),true);assert.equal(await page.locator('#financeDialog').evaluate(el=>el.scrollWidth>el.clientWidth),false);await page.screenshot({path:path.join(out,'payment-mobile.png')});await page.keyboard.press('Escape');
+  console.log('PASS: month/room filters, shared general expenses disclosed, forecast vs cash, finance detail navigation, PDF/CSV downloads and desktop/mobile layouts');
+  const backup=await page.evaluate(()=>window.Elianne.backup());assert.equal(backup.schemaVersion,6);fs.writeFileSync(path.join(out,'backup.json'),JSON.stringify(backup));
+  const second=await context.newPage();await second.goto(url);await second.waitForFunction(()=>window.Elianne?.isReady());
+  await page.evaluate(async()=>window.Elianne.addFinanceRecord('cash',{id:'concurrent',eventId:'e1',kind:'cobro',amount:'1',date:window.Elianne.today(),method:'QR',note:'Prueba concurrencia'},'Ana'));
+  const stale=await second.evaluate(async()=>{try{await window.Elianne.setContract('e1','900','Ana');return '';}catch(e){return e.message;}});assert.ok(stale.includes('otra pestaña'));await second.close();
+  await page.reload();await page.locator('[data-tab="finance"]').click();assert.equal(await page.evaluate(()=>window.Elianne.financeEvent('e1').received),70100);
+  const clean=await browser.newContext(),restored=await clean.newPage();await restored.goto(url);await restored.waitForFunction(()=>window.Elianne?.isReady());await restored.evaluate(async data=>{const api=window.Elianne;await api.restore(api.prepareRestore(data));},backup);assert.equal(await restored.evaluate(()=>window.Elianne.financeEvent('e1').result),75000);assert.equal(await restored.evaluate(()=>window.Elianne.financeEvent('e1').received),70000);
+  await restored.evaluate(async()=>{const api=window.Elianne;for(let n=0;n<35;n++)await api.addFinanceRecord('expense',{id:'long'+n,eventId:'e1',hallId:'',description:'Gasto '+n+' '+'DetalleLargoSinRecortar'.repeat(35),category:'Otros',date:api.today(),amount:'1'},'Ana');});await restored.locator('[data-open-detail="e1"]').first().click();const stressWait=restored.waitForEvent('download');await restored.locator('[data-fin-pdf-event="e1"]').click();await (await stressWait).saveAs(path.join(out,'stress-event.pdf'));await clean.close();
+  assert.deepEqual(errors,[]);await context.close();console.log('PASS: v5 full backup/restoration, reload persistence and financial writes protected against stale tabs');
+ }finally{await browser.close();}
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});

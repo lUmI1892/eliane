@@ -37,7 +37,7 @@ async function main(){
   await page.screenshot({path:path.join(out,'reports-desktop.png')});
   for(const width of [390,320]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(out,`reports-mobile-${width}.png`)});}
   await page.setViewportSize({width:1440,height:1000});
-  await page.locator('[data-tab="events"]').click();await download('[data-event-entry="e1"] [data-action="pdf"]','delivery.pdf');
+  await page.locator('[data-tab="events"]').click();await page.locator('#salonEventMonth').fill('2030-10');await download('[data-event-entry="e1"] [data-action="pdf"]','delivery.pdf');
   await page.locator('[data-tab="returns"]').click();await download('[data-return-card="e2"] [data-action="return-pdf"]','return-pending.pdf');await download('[data-return-card="e3"] [data-action="return-pdf"]','return-confirmed.pdf');
   assert.equal(await page.evaluate(()=>JSON.stringify(window.Elianne.backup().events)),before);
   console.log('PASS: report filters, date validation, CSV selection, distinct delivery/return downloads, no data mutation and mobile layout');
@@ -47,7 +47,7 @@ async function main(){
    data.events=[{id:'stress',client:'Evento extenso con materiales y observaciones',eventDate:'2031-12-31',venueEndDate:'2032-01-01',venueMode:'hours',startTime:'20:00',endTime:'03:00',date:'2031-12-30',returnDate:'2032-01-02',setupMinutes:120,cleanupMinutes:90,hallIds:['hall-1','hall-2'],guestCount:100000000,status:'reservado',type:'Graduacion',responsible:'Coordinacion de eventos',notes:'Inicio de observaciones.\n'+'Nota completa sin recortar. '.repeat(180)+'\nFIN DE OBSERVACIONES',items:data.items.map(p=>({productId:p.id,qty:12,returned:0,damaged:0,missing:0}))}];
    await api.restore(api.prepareRestore(data));
   });
-  await page.locator('[data-tab="events"]').click();await download('[data-event-entry="stress"] [data-action="pdf"]','stress.pdf');
+  await page.locator('[data-tab="events"]').click();await page.locator('#salonEventMonth').fill('2031-12');await download('[data-event-entry="stress"] [data-action="pdf"]','stress.pdf');
   await page.locator('[data-tab="reports"]').click();await page.locator('#reportHall').selectOption('');await page.locator('#reportStatus').selectOption('');await page.locator('#reportTo').fill('2020-01-01');await page.locator('#reportTo').dispatchEvent('change');await download('[data-report="events"]','empty.pdf');
   assert.deepEqual(errors,[]);console.log('PASS: empty reports and multipage long names/notes export without runtime errors');
   await context.close();

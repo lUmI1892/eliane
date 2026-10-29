@@ -93,7 +93,7 @@ async function main() {
       const pending=page.waitForEvent('download');await page.locator(selector).click();const file=await pending;await file.saveAs(path.join(out,name));return fs.readFileSync(path.join(out,name));
     }
     const backupBytes=await download('#backupBtn','backup.json'), backup=JSON.parse(backupBytes);
-    assert.equal(backup.schemaVersion,4); assert.equal(backup.items.length,3); assert.equal(backup.events.length,3);assert.equal(backup.extras.p1.cost,15);assert.ok(backup.movements.length>8);assert.equal(backup.items.find(p=>p.id==='p1').photo,photo);
+    assert.equal(backup.schemaVersion,6); assert.equal(backup.items.length,3); assert.equal(backup.events.length,3);assert.equal(backup.extras.p1.cost,15);assert.ok(backup.movements.length>8);assert.equal(backup.items.find(p=>p.id==='p1').photo,photo);
     await page.locator('[data-tab="inventory"]').click();
     const xlsx=await download('#excelBtn','inventory.xlsx');assert.equal(xlsx.subarray(0,2).toString(),'PK');
     const pdf=await download('#pdfBtn','inventory.pdf');assert.equal(pdf.subarray(0,8).toString(),'%PDF-1.4');

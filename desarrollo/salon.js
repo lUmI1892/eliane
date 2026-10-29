@@ -9,6 +9,8 @@
   const prodStatus = { disponible: 'Disponible', limpieza: 'En limpieza', mantenimiento: 'Mantenimiento', danado: 'Dañado', baja: 'Baja' };
   const types = { 'saldo-inicial': 'Saldo inicial', alta: 'Alta', edicion: 'Edicion', compra: 'Compra', reparacion: 'Reparacion', recuperacion: 'Recuperacion', baja: 'Baja', 'correccion-entrada': 'Correccion +', 'correccion-salida': 'Correccion -', salida: 'Salida', devolucion: 'Devolucion', 'daño': 'Daño', faltante: 'Faltante' };
   let draft = [], editing = null;
+  let eventPriceBaseline='',eventPriceExpected=null;
+  let eventPaymentId=api.uid();
   let selectedDay = today(), calendarMonth = today().slice(0, 7);
   let assigning=null;
   let historyEventId=null;
@@ -26,6 +28,9 @@
   /* REPORT-PDF */
   /* RENTALS-UI */
   /* EVENT-DETAIL */
+  /* CATALOG-UI */
+  /* CATEGORIES-UI */
+  /* FINANCE-UI */
   async function run(action, success = 'Guardado correctamente.') {
     try { await action(); api.notify(success); return true; }
     catch (error) { api.notify(error.message, true); return false; }
@@ -34,7 +39,7 @@
     document.querySelector('.app').insertAdjacentHTML('beforeend', `
       <section class="salon-module" aria-label="Control de eventos">
         <nav class="salon-tabs" aria-label="Secciones del salon">
-          ${[['calendar','Agenda'],['events','Eventos'],['inventory','Inventario'],['returns','Salida y devolucion'],['settings','Stock y costos'],['movements','Movimientos'],['alerts','Alertas'],['reports','Reportes']].map(([key,label],i)=>`<button type="button" class="btn salon-tab ${i===0?'active':''}" data-tab="${key}" aria-pressed="${i===0}">${label}</button>`).join('')}
+          ${[['calendar','Agenda'],['events','Eventos'],['finance','Finanzas'],['inventory','Inventario'],['returns','Salida y devolucion'],['settings','Stock y costos'],['movements','Movimientos'],['alerts','Alertas'],['reports','Reportes']].map(([key,label],i)=>`<button type="button" class="btn salon-tab ${i===0?'active':''}" data-tab="${key}" aria-pressed="${i===0}">${label}</button>`).join('')}
         </nav>
         <div id="salon-calendar" class="salon-view active">
           <div class="agenda-heading"><div><h2>Agenda de salones</h2><div id="agendaMetrics" class="agenda-metrics"></div></div><div class="actions"><button class="btn" type="button" id="hallConfigOpen">Salones</button><button class="btn primary" type="button" id="calendarNew">Nuevo evento</button></div></div>
@@ -54,19 +59,31 @@
           <div class="salon-grid">
             <form class="form" id="salonEventForm">
               <h2 id="salonEventTitle">Nuevo evento</h2>
+              <p class="event-form-intro">Completa estas 4 secciones en orden y guarda el evento al final.</p>
+              <section class="event-form-step event-step-data" aria-labelledby="eventStepData">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">1</span><div><h3 id="eventStepData">Datos del evento</h3><p>Cliente, invitados y responsable.</p></div></header>
               <div class="field"><label for="salonClient">Cliente / evento</label><input id="salonClient" required></div>
-              <div class="row"><div class="field"><label for="salonGuests">Cantidad de invitados</label><input id="salonGuests" type="number" min="0" max="100000000" step="1" placeholder="Sin definir"></div><div class="field"><label for="salonEventDate">Fecha del evento</label><input id="salonEventDate" type="date" required></div></div>
-              ${venueFields('event')}
-              <div class="row">
-                <div class="field"><label for="salonDate">Fecha de salida</label><input id="salonDate" type="date" required></div>
-                <div class="field"><label for="salonEnd">Devolucion prevista</label><input id="salonEnd" type="date" required></div>
-              </div>
+              <div class="field"><label for="salonGuests">Cantidad de invitados</label><input id="salonGuests" type="number" min="0" max="100000000" step="1" placeholder="Sin definir"></div>
               <div class="row">
                 <div class="field"><label for="salonType">Tipo</label><select id="salonType">${['Boda','Cumpleaños','Corporativo','Bautizo','Graduacion','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div>
                 <div class="field"><label for="salonStatus">Estado</label><select id="salonStatus"><option value="cotizacion">Cotizacion</option><option value="reservado">Reservado</option></select></div>
               </div>
               <div class="field"><label for="salonResp">Responsable</label><input id="salonResp" required></div>
               <div class="field"><label for="salonPlace">Lugar</label><input id="salonPlace"></div>
+              <div class="field"><label for="salonNotes">Notas</label><textarea id="salonNotes"></textarea></div>
+              </section>
+              <section class="event-form-step event-step-venue" aria-labelledby="eventStepVenue">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">2</span><div><h3 id="eventStepVenue">Fechas y salón</h3><p>Reserva el espacio y define su horario.</p></div></header>
+                <div class="field"><label for="salonEventDate">Fecha del evento</label><input id="salonEventDate" type="date" required></div>
+                ${venueFields('event')}
+              </section>
+              <section class="event-form-step event-step-material" aria-labelledby="eventStepMaterial">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">3</span><div><h3 id="eventStepMaterial">Productos y material</h3><p>Elige los productos y cuándo salen y regresan.</p></div></header>
+              <div class="row">
+                <div class="field"><label for="salonDate">Fecha de salida</label><input id="salonDate" type="date" required></div>
+                <div class="field"><label for="salonEnd">Devolucion prevista</label><input id="salonEnd" type="date" required></div>
+              </div>
+              <button type="button" class="btn primary catalog-open" id="salonCatalogOpen">Seleccionar productos con fotos</button>
               <div class="salon-assign">
                 <div class="field"><label for="salonProduct">Producto</label><select id="salonProduct"></select></div>
                 <div class="field"><label for="salonQty">Cantidad</label><input id="salonQty" type="number" min="1" step="1"></div>
@@ -74,13 +91,26 @@
               </div>
               <div id="salonDraft"></div>
               <section id="salonRentalsDraft" class="rental-draft-section" hidden></section>
-              <div class="field"><label for="salonNotes">Notas</label><textarea id="salonNotes"></textarea></div>
+              </section>
+              <section class="event-form-step event-step-payment" aria-labelledby="eventStepPayment">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">4</span><div><h3 id="eventStepPayment">Precio, abonos y saldo</h3><p>Registra lo acordado y el dinero recibido.</p></div></header>
+              <div class="field"><label for="salonBasePrice">Precio base acordado (Bs)</label><input id="salonBasePrice" type="number" min="0" max="1000000000000" step="0.01" placeholder="Sin definir"></div>
+              <div class="field"><label id="salonPaymentLabel" for="salonPaymentAmount">Anticipo recibido (Bs)</label><input id="salonPaymentAmount" type="number" min="0" max="1000000000000" step="0.01" placeholder="0.00"></div>
+              <div id="salonPaymentFields" class="event-payment-fields" hidden><div class="row"><div class="field"><label for="salonPaymentDate">Fecha del abono</label><input id="salonPaymentDate" type="date" value="${today()}" max="${today()}"></div><div class="field"><label for="salonPaymentMethod">Medio de pago</label><select id="salonPaymentMethod">${['Efectivo','Transferencia','QR','Tarjeta','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div></div><div class="field"><label for="salonPaymentNote">Referencia del abono</label><input id="salonPaymentNote" maxlength="300"></div></div>
+              <dl class="event-payment-summary"><div><dt>Total acordado</dt><dd><output id="salonPaymentTotal"></output></dd></div><div id="salonPreviousPaymentRow" hidden><dt>Pagado anteriormente</dt><dd><output id="salonPreviousPayment"></output></dd></div><div><dt>Total pagado</dt><dd><output id="salonPaymentPaid"></output></dd></div><div><dt>Saldo pendiente</dt><dd><output id="salonPaymentBalance"></output></dd></div><div id="salonPaymentCreditRow" hidden><dt>Saldo a favor del cliente</dt><dd><output id="salonPaymentCredit"></output></dd></div></dl>
+              </section>
               <div id="eventChangeMeta" class="event-change-meta" hidden><div class="field"><label for="salonRecordedBy">Cambio registrado por</label><input id="salonRecordedBy" maxlength="120"></div><div class="field"><label for="salonChangeNote">Motivo / solicitud del cliente</label><textarea id="salonChangeNote" maxlength="10000"></textarea></div></div>
               <div class="actions"><button class="btn primary" type="submit">Guardar evento</button><button class="btn" type="button" id="salonClearEvent">Limpiar</button></div>
             </form>
             <div class="salon-event-column">
               <h2>Eventos registrados</h2>
-              <div class="salon-tools"><input id="salonEventSearch" type="search" aria-label="Buscar eventos" placeholder="Buscar evento, producto o responsable"><select id="salonEventFilter" aria-label="Estado del evento"><option value="">Todos los estados</option>${Object.entries(statuses).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+              <div class="event-list-filters">
+                <div class="field"><label for="salonEventMonth">Mes del evento</label><input id="salonEventMonth" type="month" min="1900-01" max="2199-12" value="${today().slice(0,7)}" required></div>
+                <div class="field"><label for="salonEventHall">Salon</label><select id="salonEventHall"></select></div>
+                <div class="field"><label for="salonEventFilter">Estado</label><select id="salonEventFilter"><option value="">Todos los estados</option>${Object.entries(statuses).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+                <div class="field event-list-search"><label for="salonEventSearch">Buscar eventos</label><input id="salonEventSearch" type="search" placeholder="Evento, producto o responsable"></div>
+              </div>
+              <p id="salonEventSelection" class="salon-muted event-list-summary" role="status"></p>
               <div class="salon-list" id="salonEventList"></div>
             </div>
           </div>
@@ -115,7 +145,10 @@
     $('salon-inventory').append(document.querySelector('.stats'), document.querySelector('.layout'));
     $('inventoryExports').append($('excelBtn'), $('pdfBtn'));
     initRentals();
+    initCatalog();
+    initCategories();
     initEventDetail();
+    initFinance();
     document.querySelector('.salon-module').addEventListener('click', click);
     document.querySelector('.salon-module').addEventListener('input', input);
     $('calendarDays').addEventListener('keydown', event => {
@@ -126,6 +159,7 @@
       event.preventDefault();d.setDate(d.getDate()+delta);selectDay(dateKey(d),true);
     });
     $('salonEventForm').addEventListener('submit', saveEvent);
+    $('salonEventMonth').addEventListener('change',()=>{if(!$('salonEventMonth').value)$('salonEventMonth').value=today().slice(0,7);renderEvents();});
     $('salonExtraForm').addEventListener('submit', e => { e.preventDefault(); run(() => api.saveExtra($('extraProduct').value, { status: $('extraStatus').value, minQty: $('extraMin').value, cost: $('extraCost').value })); });
     ['reportFrom','reportTo','reportHall','reportStatus'].forEach(id=>$(id).addEventListener('change',renderReports));
     $('extraProduct').addEventListener('change', loadExtras);
@@ -206,9 +240,12 @@
     csv('historial-evento',[['Evento','Fecha del evento','Fecha del registro','Tipo','Detalle','Responsable registrado'],...api.eventHistory(e.id).map(m=>[m.eventName||e.client,e.eventDate,new Date(m.at).toLocaleString('es-BO'),m.type,m.detail,m.responsible])]);
   }
   function refreshHallNames() {
-    const halls=api.get().halls,current=$('calendarHall').value;
-    $('calendarHall').innerHTML='<option value="">Todos los salones</option>'+halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'<option value="unassigned">Sin salon asignado</option>';
-    $('calendarHall').value=current;
+    const halls=api.get().halls;
+    for(const id of ['calendarHall','salonEventHall']){
+      const current=$(id).value;
+      $(id).innerHTML='<option value="">Todos los salones</option>'+halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'<option value="unassigned">Sin salon asignado</option>';
+      $(id).value=current;
+    }
     document.querySelectorAll('[data-hall-name]').forEach(el=>el.textContent=halls.find(h=>h.id===el.dataset.hallName)?.name||'');
     $('calendarHallLegend').innerHTML=halls.map(h=>`<span><i data-hall-legend="${h.id}" style="background:${hallColors[h.id].accent}" aria-hidden="true">${h.id.slice(-1)}</i>${esc(h.name)}</span>`).join('')+'<span><i class="unassigned-dot" aria-hidden="true">?</i>Sin asignar</span>';
   }
@@ -231,6 +268,8 @@
   function refresh() {
     refreshHallNames();refreshSelects(); loadExtras(); renderDraft(); renderEvents(); renderReturns(); renderAlerts(); renderStock(); renderMovements(); renderReports(); renderCalendar();if($('eventHistoryDialog').open)renderHistory();
     renderEventDetail();
+    renderFinanceMonth();
+    updateEventPaymentPreview();
   }
   const localDate = key => { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d || 1,12); };
   const dateKey = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
@@ -308,6 +347,7 @@
     resetEvent();
     ['salonEventDate','salonDate','salonEnd'].forEach(key=>$(key).value=selectedDay);
     setVenue('event',{eventDate:selectedDay,hallIds:api.get().halls.some(h=>h.id===$('calendarHall').value)?[$('calendarHall').value]:[]});
+    $('salonEventMonth').value=selectedDay.slice(0,7);renderEvents();
     refreshSelects(); renderDraft(); showTab('events'); $('salonClient').focus();
   }
   function renderDraft() {
@@ -315,8 +355,9 @@
     $('salonDraft').innerHTML = draft.length ? `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Necesita</th><th>Propios / disponibles</th><th></th></tr></thead><tbody>${draft.map((i,n)=>`<tr data-draft-row="${n}"><td>${esc(product(i.productId)?.name || 'Producto eliminado')}<p data-draft-coverage class="salon-muted"></p></td><td>${i.qty}</td><td><output data-draft-own>${api.ownQty(i)}</output> / ${api.available(i.productId,a,b,editing)}</td><td><div class="draft-actions"><button type="button" class="btn small" data-draft-rent="${n}">Alquiler externo</button><button type="button" class="btn small danger" data-remove="${n}">Quitar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin productos asignados.</div>';
     renderRentalDraft();updateDraftCoverage();
   }
-  function summary(e) {
-    return `<div><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><div class="meta"><span class="pill">Evento: ${esc(e.eventDate||e.date)}</span><span class="pill">Invitados: ${guestsLabel(e)}</span><span class="pill status-${e.status}">${statuses[e.status]}</span><span class="pill">Resp.: ${esc(e.responsible || 'Sin asignar')}</span></div><p class="salon-muted">${esc(venueLabel(e))}</p><p class="salon-muted">Material: ${esc(e.date)} al ${esc(e.returnDate)}</p>${e.place?`<p class="salon-muted">${esc(e.place)}</p>`:''}${e.notes?`<p class="salon-muted">${esc(e.notes)}</p>`:''}${rentalSummary(e)}${hasRental(e)?button('Alquiler externo','rentals',e.id):''}</div>`;
+  function summary(e,financial=false) {
+    const f=financial?api.financeEvent(e.id):null;
+    return `<div><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><div class="meta"><span class="pill">Evento: ${esc(e.eventDate||e.date)}</span><span class="pill">Invitados: ${guestsLabel(e)}</span><span class="pill status-${e.status}">${statuses[e.status]}</span><span class="pill">Resp.: ${esc(e.responsible || 'Sin asignar')}</span></div>${f?`<dl class="event-payment-summary event-card-payment"><div><dt>Total acordado</dt><dd>${finMoney(f.total)}</dd></div><div><dt>Pagado neto</dt><dd>${finMoney(f.received)}</dd></div><div><dt>Saldo pendiente</dt><dd>${finMoney(f.pending)}</dd></div>${f.credit?`<div><dt>Saldo a favor</dt><dd>${finMoney(f.credit)}</dd></div>`:''}</dl>`:''}<p class="salon-muted">${esc(venueLabel(e))}</p><p class="salon-muted">Material: ${esc(e.date)} al ${esc(e.returnDate)}</p>${e.place?`<p class="salon-muted">${esc(e.place)}</p>`:''}${e.notes?`<p class="salon-muted">${esc(e.notes)}</p>`:''}${rentalSummary(e)}${hasRental(e)?button('Alquiler externo','rentals',e.id):''}</div>`;
   }
   function button(label, action, id, cls = '') { return `<button type="button" class="btn small ${cls}" data-action="${action}" data-event="${esc(id)}">${label}</button>`; }
   function readTable(e) {
@@ -324,9 +365,18 @@
     return `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Propios</th><th>Regreso propio</th><th>Dañado propio</th><th>Falta propio</th></tr></thead><tbody>${e.items.map(i=>`<tr><td>${esc(product(i.productId)?.name || 'Producto eliminado')}${i.external?`<br><span class="salon-muted">Externos: ${i.qty-api.ownQty(i)}</span>`:''}</td><td>${api.ownQty(i)}</td><td>${i.returned}</td><td>${i.damaged}</td><td>${i.missing}</td></tr>`).join('')}</tbody></table></div>`;
   }
   function renderEvents() {
-    const search = $('salonEventSearch').value.toLocaleLowerCase(), filter = $('salonEventFilter').value;
-    const events = api.get().events.filter(e => (!filter || e.status === filter) && [e.client,e.responsible,e.place,e.notes,e.eventDate,e.date,e.returnDate,hallNames(e),...e.items.map(i=>product(i.productId)?.name || '')].join(' ').toLocaleLowerCase().includes(search)).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date));
-    $('salonEventList').innerHTML = events.length ? events.map(e=>`<article class="salon-card" data-event-entry="${esc(e.id)}"><div class="salon-mini">${summary(e)}<div class="salon-actions">${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${e.status==='cotizacion'?button('Reservar','reserve',e.id,'primary'):''}${['cotizacion','reservado'].includes(e.status)?button('Cancelar','cancel',e.id,'danger'):''}${e.status!=='cancelado'?button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id):''}${button('Historial','history',e.id)}${button('PDF entrega','pdf',e.id)}</div></div>${readTable(e)}</article>`).join('') : '<div class="empty">No hay eventos en esta vista.</div>';
+    const search = $('salonEventSearch').value.trim().toLocaleLowerCase(), filter = $('salonEventFilter').value;
+    const month=$('salonEventMonth').value||today().slice(0,7),hall=$('salonEventHall').value;
+    const events = api.get().events.filter(e => (e.eventDate||e.date).slice(0,7)===month && matchesHall(e,hall) && (!filter || e.status === filter) && [e.client,e.responsible,e.place,e.notes,e.eventDate,e.date,e.returnDate,hallNames(e),...e.items.map(i=>product(i.productId)?.name || '')].join(' ').toLocaleLowerCase().includes(search)).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date)||a.client.localeCompare(b.client,'es'));
+    const monthLabel=localDate(month+'-01').toLocaleDateString('es-BO',{month:'long',year:'numeric'});
+    $('salonEventSelection').textContent=`${events.length} ${events.length===1?'evento':'eventos'} · ${monthLabel} · ${$('salonEventHall').selectedOptions[0]?.textContent||'Todos los salones'}`;
+    $('salonEventList').innerHTML = events.length ? events.map(e=>`<article class="salon-card" data-event-entry="${esc(e.id)}"><div class="salon-mini">${summary(e,true)}<div class="salon-actions">${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${e.status==='cotizacion'?button('Reservar','reserve',e.id,'primary'):''}${['cotizacion','reservado'].includes(e.status)?button('Cancelar','cancel',e.id,'danger'):''}${e.status!=='cancelado'?button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id):''}${button('Historial','history',e.id)}${button('PDF entrega','pdf',e.id)}</div></div>${readTable(e)}</article>`).join('') : '<div class="empty">No hay eventos en esta vista.</div>';
+    document.querySelectorAll('#salonEventList [data-event-entry]').forEach(card=>{
+      const id=card.dataset.eventEntry,f=api.financeEvent(id);
+      card.querySelector('.salon-actions').insertAdjacentHTML('afterbegin',finButton('Agregar gasto','expense',id)+button('Ver evento','view',id));
+      card.querySelector('[data-fin-mode="expense"]').classList.add('event-expenses-open');
+      const costs=document.createElement('p');costs.className='event-card-expenses';costs.textContent='Gastos registrados: '+finMoney(f.cost)+(f.unknown?' + costos por definir':'');card.querySelector('.event-card-payment').after(costs);
+    });
   }
   function returnValues(e) { return returns.get(e.id) || e.items.map(i=>({ productId: i.productId, returned: String(i.returned), damaged: String(i.damaged) })); }
   function renderReturns() {
@@ -400,19 +450,46 @@
     const from=$('reportFrom').value,to=$('reportTo').value,hall=$('reportHall').value,status=$('reportStatus').value;
     return api.get().events.filter(e=>(!from||e.eventDate>=from)&&(!to||e.eventDate<=to)&&(!status||e.status===status)&&(!hall||(hall==='unassigned'?!e.hallIds.length:e.hallIds.includes(hall)))).sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||a.client.localeCompare(b.client,'es'));
   }
+  function resetEventPayment(){
+    eventPaymentId=api.uid();$('salonPaymentAmount').value='';$('salonPaymentDate').value=today();$('salonPaymentMethod').value='Efectivo';$('salonPaymentNote').value='';
+  }
+  function updateEventPaymentPreview(){
+    if(!$('salonPaymentAmount'))return;
+    let f=null;if(editing){try{f=api.financeEvent(editing);}catch{}}
+    $('salonPaymentLabel').textContent=editing?'Nuevo abono recibido (Bs)':'Anticipo recibido (Bs)';$('salonPreviousPaymentRow').hidden=!editing;
+    $('salonPreviousPayment').textContent=finMoney(f?.received||0);
+    let positive=false;
+    try{
+      if(!$('salonBasePrice').checkValidity()||!$('salonPaymentAmount').checkValidity())throw new Error('Importe invalido');
+      const base=api.moneyCents($('salonBasePrice').value,true),amount=api.moneyCents($('salonPaymentAmount').value,true)||0;
+      positive=amount>0;
+      const total=base===null?null:base+(f?.extras||0),alreadySaved=f?.cash.some(c=>c.id===eventPaymentId&&!c.voidedAt),paid=(f?.received||0)+(alreadySaved?0:amount);
+      if(!Number.isSafeInteger(paid)||total!==null&&!Number.isSafeInteger(total))throw new Error('Importe fuera de limite');
+      const credit=total===null?0:Math.max(0,paid-total);
+      $('salonPaymentTotal').textContent=finMoney(total);$('salonPaymentPaid').textContent=finMoney(paid);$('salonPaymentBalance').textContent=finMoney(total===null?null:Math.max(0,total-paid));$('salonPaymentCredit').textContent=finMoney(credit);$('salonPaymentCreditRow').hidden=!credit;
+    }catch{
+      ['salonPaymentTotal','salonPaymentPaid','salonPaymentBalance'].forEach(id=>$(id).textContent='Revisar importe');$('salonPaymentCreditRow').hidden=true;
+    }
+    $('salonPaymentFields').hidden=!positive;$('salonPaymentDate').required=positive;$('salonPaymentDate').max=today();
+    if(!api.saving())['salonPaymentDate','salonPaymentMethod','salonPaymentNote'].forEach(id=>$(id).disabled=!positive);
+  }
   async function saveEvent(event) {
     event.preventDefault();
     const payload={id:editing||api.uid(),client:$('salonClient').value,guestCount:$('salonGuests').value,eventDate:$('salonEventDate').value,...readVenue('event'),date:$('salonDate').value,returnDate:$('salonEnd').value,type:$('salonType').value,status:$('salonStatus').value,responsible:$('salonResp').value,place:$('salonPlace').value,notes:$('salonNotes').value,recordedBy:$('salonRecordedBy').value,changeNote:$('salonChangeNote').value,items:draft,updatedAt:Date.now()};
-    if(await run(()=>api.saveEvent(payload))) {resetEvent();if(detailEditing)finishDetailEdit();}
+    if(!editing||$('salonBasePrice').value!==eventPriceBaseline){payload.basePrice=$('salonBasePrice').value;if(editing)payload.expectedBasePrice=eventPriceExpected;}
+    if($('salonPaymentAmount').value!==''&&Number($('salonPaymentAmount').value)!==0){payload.payment={id:eventPaymentId,amount:$('salonPaymentAmount').value,date:$('salonPaymentDate').value,method:$('salonPaymentMethod').value,note:$('salonPaymentNote').value};if(editing)payload.expectedBasePrice=eventPriceExpected;}
+    if(await run(()=>api.saveEvent(payload))) {if(!detailEditing){$('salonEventMonth').value=payload.eventDate.slice(0,7);renderEvents();}resetEvent();if(detailEditing)finishDetailEdit();}
   }
-  function resetEvent() { editing=null; draft=[]; $('salonEventForm').reset();syncVenueMode('event');$('eventChangeMeta').hidden=true;$('salonRecordedBy').required=false; $('salonEventTitle').textContent='Nuevo evento'; refreshSelects(); renderDraft(); }
+  function resetEvent() { editing=null; draft=[];eventPriceBaseline='';eventPriceExpected=null; $('salonEventForm').reset();resetEventPayment();syncVenueMode('event');$('eventChangeMeta').hidden=true;$('salonRecordedBy').required=false; $('salonEventTitle').textContent='Nuevo evento'; refreshSelects(); renderDraft();updateEventPaymentPreview(); }
   function editEvent(id,inline=false) {
     const e=api.get().events.find(e=>e.id===id);
     if(!e) return;
     editing=id; draft=JSON.parse(JSON.stringify(e.items));
+    eventPriceExpected=api.financeEvent(id).contract.base;$('salonBasePrice').value=eventPriceExpected===null?'':eventPriceExpected/100;eventPriceBaseline=$('salonBasePrice').value;
+    resetEventPayment();
     [['salonClient',e.client],['salonEventDate',e.eventDate||e.date],['salonDate',e.date],['salonEnd',e.returnDate],['salonType',e.type],['salonStatus',e.status],['salonResp',e.responsible],['salonPlace',e.place],['salonNotes',e.notes]].forEach(([key,value])=>$(key).value=value);
     $('salonGuests').value=e.guestCount??'';$('eventChangeMeta').hidden=false;$('salonRecordedBy').required=true;$('salonRecordedBy').value='';$('salonChangeNote').value='';
-    setVenue('event',e);$('salonEventTitle').textContent='Editar evento'; refreshSelects(); renderDraft(); if(!inline)showTab('events'); $('salonClient').focus();
+    setVenue('event',e);$('salonEventTitle').textContent='Editar evento'; refreshSelects(); renderDraft();updateEventPaymentPreview(); if(!inline)showTab('events'); $('salonClient').focus();
   }
   function eventPdf(id,kind) {
     const e=api.get().events.find(e=>e.id===id); if(!e) return;
@@ -496,6 +573,8 @@
     if(target.dataset.report) report(target.dataset.report);
     const action=target.dataset.action,id=target.dataset.event;
     if(!action)return;
+    if(action==='expenses'){if(openEventDetail(id,'events')){$('detailExpenses').scrollIntoView({block:'start'});$('detailExpensesTitle').focus({preventScroll:true});}return;}
+    if(action==='finance'){if(openEventDetail(id,'events'))$('detailFinance').scrollIntoView({block:'start'});return;}
     if(action==='edit'){if(target.closest('#salon-calendar')){if(openEventDetail(id,'calendar'))startDetailEdit();}else editEvent(id);}
     if(action==='assign')openAssignment(id);
     if(action==='history')openHistory(id);
@@ -517,6 +596,7 @@
   }
   function input(event) {
     const input=event.target;
+    if(['salonBasePrice','salonPaymentAmount'].includes(input.id))updateEventPaymentPreview();
     if(input.matches('[data-return]')){
       const e=api.get().events.find(e=>e.id===input.dataset.event); if(!e)return;
       const values=returnValues(e); values[Number(input.dataset.index)][input.dataset.return]=input.value; returns.set(e.id,values); validateReturnUI(e); return;
@@ -531,7 +611,7 @@
       if(!$('eventVenueEnd').value||$('eventVenueEnd').value<$('salonEventDate').value)$('eventVenueEnd').value=$('salonEventDate').value;
       refreshSelects();renderDraft();
     }
-    if(['salonEventSearch','salonEventFilter'].includes(input.id))renderEvents();
+    if(['salonEventSearch','salonEventFilter','salonEventMonth','salonEventHall'].includes(input.id))renderEvents();
     if(['stockStart','stockEnd'].includes(input.id))renderStock();
     if(input.id==='moveSearch')renderMovements();
   }

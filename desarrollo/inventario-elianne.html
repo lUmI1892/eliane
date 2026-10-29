@@ -293,17 +293,17 @@
               </div>
               <div class="field">
                 <label for="categoryInput">Categoria</label>
-                <input id="categoryInput" list="categoryOptions" autocomplete="off" placeholder="Ej: Vajilla" />
-                <datalist id="categoryOptions">
-                  <option value="Vajilla"></option>
-                  <option value="Cristaleria"></option>
-                  <option value="Cubiertos"></option>
-                  <option value="Manteleria"></option>
-                  <option value="Decoracion"></option>
-                  <option value="Mobiliario"></option>
-                  <option value="Cocina"></option>
-                  <option value="Otros"></option>
-                </datalist>
+                <div class="category-entry"><select id="categoryInput">
+                  <option value="">Seleccionar categoria</option>
+                  <option value="Vajilla">Vajilla</option>
+                  <option value="Cristaleria">Cristaleria</option>
+                  <option value="Cubiertos">Cubiertos</option>
+                  <option value="Manteleria">Manteleria</option>
+                  <option value="Decoracion">Decoracion</option>
+                  <option value="Mobiliario">Mobiliario</option>
+                  <option value="Cocina">Cocina</option>
+                  <option value="Otros">Otros</option>
+                </select><button id="inventoryCategoryAdd" class="btn small" type="button" data-new-category="inventory">Nueva categoria</button></div>
               </div>
             </div>
 
@@ -352,6 +352,7 @@
       const STORAGE_KEY = "elianneInventory.v1";
       const state = { items: [], editingId: null, photo: "" };
       const $ = (id) => document.getElementById(id);
+      const categorySuggestions=[...$('categoryInput').options].map(option=>option.value).filter(Boolean);
       const els = {
         form: $("productForm"), formTitle: $("formTitle"), photoInput: $("photoInput"), photoPreview: $("photoPreview"), photoEmpty: $("photoEmpty"), photoTools: $("photoTools"),
         removePhotoBtn: $("removePhotoBtn"), name: $("nameInput"), qty: $("qtyInput"), unit: $("unitInput"), code: $("codeInput"), category: $("categoryInput"), location: $("locationInput"), notes: $("notesInput"),
@@ -446,15 +447,18 @@
       }
 
       function categories() {
-        return [...new Set(state.items.map((item) => clean(item.category)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+        return window.Elianne.categories();
+      }
+      function setCategorySelection(value) {
+        els.category.value=[...els.category.options].find(option=>window.Elianne.categoryKey(option.value)===window.Elianne.categoryKey(value))?.value||'';
       }
 
       function filteredItems() {
         const query = normalize(els.search.value);
-        const category = normalize(els.filter.value);
+        const category = window.Elianne.categoryKey(els.filter.value);
         let items = state.items.filter((item) => {
           const text = normalize([item.name, item.code, item.category, item.location, item.notes].join(" "));
-          return (!query || text.includes(query)) && (!category || normalize(item.category) === category);
+          return (!query || text.includes(query)) && (!category || window.Elianne.categoryKey(item.category) === category);
         });
         const sort = els.sort.value;
         items.sort((a, b) => {
@@ -468,8 +472,12 @@
 
       function renderFilters() {
         const current = els.filter.value;
+        const selected=els.category.value;
         els.filter.innerHTML = '<option value="">Todas las categorias</option>' + categories().map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join("");
         els.filter.value = current;
+        const seen=new Set(),suggestions=[...categories(),...categorySuggestions].filter(name=>{const key=window.Elianne.categoryKey(name);if(seen.has(key))return false;seen.add(key);return true;});
+        els.category.innerHTML='<option value="">Seleccionar categoria</option>'+suggestions.sort((a,b)=>a.localeCompare(b,'es')).map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+        setCategorySelection(selected);
       }
 
       function renderStats() {
@@ -538,7 +546,7 @@
         els.qty.title = "Cambia las cantidades desde Movimientos para conservar el historial.";
         els.unit.value = item.unit || "unidades";
         els.code.value = item.code || "";
-        els.category.value = item.category || "";
+        setCategorySelection(item.category || "");
         els.location.value = item.location || "";
         els.notes.value = item.notes || "";
         els.formTitle.textContent = "Editar producto";
@@ -821,7 +829,7 @@
         reader.onload = async () => {
           try {
             const imported = window.Elianne.prepareRestore(JSON.parse(reader.result));
-            if (!confirm("Restaurar este respaldo reemplazara los datos actuales. Se descargara primero una copia de los datos actuales. Continuar?")) return;
+            if (!confirm("Restaurar este respaldo reemplazara inventario, eventos, finanzas e historial actuales. Se descargara primero una copia completa. Un respaldo anterior puede no incluir finanzas. Continuar?")) return;
             if(!backup())return;
             await window.Elianne.restore(imported);
             resetForm();

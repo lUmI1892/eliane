@@ -293,17 +293,17 @@
               </div>
               <div class="field">
                 <label for="categoryInput">Categoria</label>
-                <input id="categoryInput" list="categoryOptions" autocomplete="off" placeholder="Ej: Vajilla" />
-                <datalist id="categoryOptions">
-                  <option value="Vajilla"></option>
-                  <option value="Cristaleria"></option>
-                  <option value="Cubiertos"></option>
-                  <option value="Manteleria"></option>
-                  <option value="Decoracion"></option>
-                  <option value="Mobiliario"></option>
-                  <option value="Cocina"></option>
-                  <option value="Otros"></option>
-                </datalist>
+                <div class="category-entry"><select id="categoryInput">
+                  <option value="">Seleccionar categoria</option>
+                  <option value="Vajilla">Vajilla</option>
+                  <option value="Cristaleria">Cristaleria</option>
+                  <option value="Cubiertos">Cubiertos</option>
+                  <option value="Manteleria">Manteleria</option>
+                  <option value="Decoracion">Decoracion</option>
+                  <option value="Mobiliario">Mobiliario</option>
+                  <option value="Cocina">Cocina</option>
+                  <option value="Otros">Otros</option>
+                </select><button id="inventoryCategoryAdd" class="btn small" type="button" data-new-category="inventory">Nueva categoria</button></div>
               </div>
             </div>
 
@@ -560,6 +560,21 @@
     if (!name) fail('El producto necesita un nombre.');
     return { id: id(p.id), name, qty: quantity(p.qty), unit: text(p.unit) || 'unidades', code: text(p.code), category: text(p.category) || 'Otros', location: text(p.location), notes: text(p.notes), photo: photo(p.photo), updatedAt: Number(p.updatedAt) || Date.now() };
   }
+  function categoryKey(value){return String(value??'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');}
+  function normalizeCategories(raw,items,required){
+    if(raw===undefined&&!required)raw=[];
+    if(!Array.isArray(raw))fail('Falta la lista de categorias del respaldo.');
+    const result=[],seen=new Set();
+    for(const value of [...raw,...items.map(p=>p.category)]){
+      const name=text(value,'Categoria').normalize('NFC').replace(/\s+/g,' ');if(!name)fail('Nombre de categoria invalido.');
+      const key=categoryKey(name);if(!seen.has(key)){seen.add(key);result.push(name);}
+    }
+    return result.sort((a,b)=>a.localeCompare(b,'es'));
+  }
+  function addCategory(value){
+    const name=text(value,'Categoria',100).normalize('NFC').replace(/\s+/g,' ');if(!name)fail('Escribe el nombre de la categoria.');
+    return commit(d=>{if(d.categories.some(c=>categoryKey(c)===categoryKey(name)))fail('Ya existe esa categoria.');d.categories.push(name);movement(d,'categoria-creada',null,0,'Categoria creada: '+name+'.');});
+  }
   function normalizeRental(raw,total) {
     if(raw==null)return null;
     if(!obj(raw)||!rentalStatuses.includes(raw.status))fail('Estado del alquiler invalido.');
@@ -594,8 +609,8 @@
     return { id: id(e.id), client, guestCount, eventDate, ...normalizeVenue(e,eventDate), date: start, returnDate: end, departureDate: e.departureDate ? date(e.departureDate) : '', type: text(e.type) || 'Otro', status: e.status, responsible: text(e.responsible), place: text(e.place), notes: text(e.notes), items, settledAt: Number(e.settledAt) || null, updatedAt: Number(e.updatedAt) || Date.now() };
   }
   function normalize(raw) {
-    if (!obj(raw) || ![3,4].includes(raw.schemaVersion) || !Array.isArray(raw.items) || !Array.isArray(raw.events) || !obj(raw.extras) || !Array.isArray(raw.movements)) fail('El archivo no es un respaldo completo compatible.');
-    const d = { schemaVersion: 4, revision: quantity(raw.revision ?? 0), halls:normalizeHalls(raw.halls), items: raw.items.map(normalizeProduct), events: raw.events.map(normalizeEvent), extras: {}, movements: [] };
+    if (!obj(raw) || ![3,4,5,6].includes(raw.schemaVersion) || !Array.isArray(raw.items) || !Array.isArray(raw.events) || !obj(raw.extras) || !Array.isArray(raw.movements)) fail('El archivo no es un respaldo completo compatible.');
+    const d = { schemaVersion: 6, revision: quantity(raw.revision ?? 0), halls:normalizeHalls(raw.halls), items: raw.items.map(normalizeProduct), events: raw.events.map(normalizeEvent), extras: {}, movements: [] };
     for (const collection of [d.items, d.events]) {
       if (new Set(collection.map(v => v.id)).size !== collection.length) fail('El respaldo tiene identificadores repetidos.');
     }
@@ -609,7 +624,143 @@
       return { id: id(m.id), at: m.at, productId: m.productId ? id(m.productId) : '', productName: text(m.productName), eventId: m.eventId ? id(m.eventId) : '', eventName: text(m.eventName), type: text(m.type), delta: m.delta, balance: quantity(m.balance ?? 0), detail: text(m.detail,'Detalle',25000), responsible: text(m.responsible) };
     });
     if (new Set(d.movements.map(m => m.id)).size !== d.movements.length) fail('Hay movimientos repetidos.');
+    d.categories=normalizeCategories(raw.categories,d.items,raw.schemaVersion===6);
+    d.finance=normalizeFinance(raw.finance,d,raw.schemaVersion>=5);
     return d;
+  }
+  const cashKinds=['cobro','reembolso-cliente','pago-gasto','reembolso-proveedor'];
+  const cashMethods=['Efectivo','Transferencia','QR','Tarjeta','Otro'];
+  const finSum=values=>values.reduce((sum,value)=>{const n=sum+value;if(!Number.isSafeInteger(n))fail('El total financiero supera el limite seguro.');return n;},0);
+  const cents=n=>{if(!Number.isSafeInteger(n)||n<0||n>100000000000000)fail('Importe financiero invalido.');return n;};
+  function toCents(value,nullable=false){
+    if(nullable&&(value===''||value==null))return null;
+    const s=String(value??'').trim();if(!/^\d+(\.\d{1,2})?$/.test(s))fail('Escribe un importe positivo con hasta dos decimales.');
+    const [whole,decimals='']=s.split('.');return cents(Number(whole)*100+Number(decimals.padEnd(2,'0')));
+  }
+  function finMeta(raw){
+    const by=text(raw.by),at=raw.at,voidedAt=raw.voidedAt==null?null:raw.voidedAt,voidReason=text(raw.voidReason),voidBy=text(raw.voidBy);
+    if(!by||!Number.isFinite(at)||at<=0||!Number.isFinite(new Date(at).getTime())||(voidedAt!==null&&(!Number.isFinite(voidedAt)||voidedAt<=0||!Number.isFinite(new Date(voidedAt).getTime())||!voidReason||!voidBy)))fail('Registro financiero o anulacion invalida.');
+    return {by,at,voidedAt,voidReason,voidBy};
+  }
+  const freshFinMeta=by=>{by=text(by);if(!by)fail('Escribe quien registra el movimiento.');return {by,at:Date.now(),voidedAt:null,voidReason:'',voidBy:''};};
+  const finExpenseKey=c=>c.expenseId?'gasto:'+c.expenseId:'alquiler:'+c.eventId+':'+c.productId;
+  const netCash=rows=>finSum(rows.filter(c=>!c.voidedAt).map(c=>['reembolso-cliente','reembolso-proveedor'].includes(c.kind)?-c.amount:c.amount));
+  function normalizeFinance(raw,d,required){
+    if(raw===undefined&&!required)return {contracts:[],expenses:[],cash:[]};
+    if(!obj(raw)||!['contracts','expenses','cash'].every(key=>Array.isArray(raw[key])))fail('Faltan los registros financieros del respaldo.');
+    const eventExists=eid=>{if(!d.events.some(e=>e.id===eid))fail('Registro financiero sin evento.');return eid;};
+    const entry=r=>{if(!obj(r))fail('Registro financiero invalido.');const amount=cents(r.amount);if(!amount)fail('El importe debe ser mayor a cero.');const description=text(r.description);if(!description)fail('Escribe el concepto.');return {id:id(r.id),description,amount,...finMeta(r)};};
+    const contracts=raw.contracts.map(c=>{
+      if(!obj(c)||!Array.isArray(c.extras))fail('Acuerdo financiero invalido.');
+      return {eventId:eventExists(id(c.eventId)),base:c.base===null?null:cents(c.base),extras:c.extras.map(entry)};
+    });
+    const expenses=raw.expenses.map(r=>{
+      const e=entry(r),eventId=r.eventId?eventExists(id(r.eventId)):'',hallId=r.hallId?id(r.hallId):'';
+      if(hallId&&!d.halls.some(h=>h.id===hallId)||eventId&&hallId)fail('Salon del gasto invalido.');
+      return {...e,eventId,hallId,date:date(r.date),category:text(r.category)||'Otros'};
+    });
+    const cash=raw.cash.map(c=>{
+      if(!obj(c)||!cashKinds.includes(c.kind)||!cashMethods.includes(c.method))fail('Movimiento de caja invalido.');
+      const amount=cents(c.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+      const eventId=c.eventId?eventExists(id(c.eventId)):'',expenseId=c.expenseId?id(c.expenseId):'',productId=c.productId?id(c.productId):'';
+      if(['cobro','reembolso-cliente'].includes(c.kind)){if(!eventId||expenseId||productId)fail('Cobro sin evento valido.');}
+      else if(expenseId){const expense=expenses.find(e=>e.id===expenseId);if(!expense||expense.eventId!==eventId||productId)fail('Pago sin gasto valido.');}
+      else if(!eventId||!productId||!d.events.find(e=>e.id===eventId)?.items.some(i=>i.productId===productId&&i.external))fail('Pago sin alquiler externo valido.');
+      return {id:id(c.id),kind:c.kind,amount,eventId,expenseId,productId,date:date(c.date),method:c.method,note:text(c.note),...finMeta(c)};
+    });
+    for(const list of [contracts.map(c=>c.eventId),expenses.map(c=>c.id),cash.map(c=>c.id),...contracts.map(c=>c.extras.map(x=>x.id))])if(new Set(list).size!==list.length)fail('Hay registros financieros repetidos.');
+    const groups=new Map();for(const c of cash){const key=['cobro','reembolso-cliente'].includes(c.kind)?'cliente:'+c.eventId:finExpenseKey(c);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c);}
+    for(const rows of groups.values()){
+      if(netCash(rows)<0)fail('El reembolso o la anulacion supera los pagos vigentes.');
+      const dates=[...new Set(rows.filter(c=>!c.voidedAt).map(c=>c.date))].sort();let running=0;
+      for(const day of dates){running=finSum([running,netCash(rows.filter(c=>c.date===day))]);if(running<0)fail('La fecha del reembolso es anterior a los pagos que lo cubren.');}
+    }
+    for(const c of contracts)finSum([c.base||0,...c.extras.filter(x=>!x.voidedAt).map(x=>x.amount)]);
+    finSum([...cash.map(c=>c.amount),...expenses.map(x=>x.amount),...contracts.flatMap(c=>[c.base||0,...c.extras.map(x=>x.amount)]),...d.events.flatMap(e=>e.items.map(i=>i.external?.cost==null?0:Math.round(i.external.cost*100)))]);
+    return {contracts,expenses,cash};
+  }
+  function finExpenseRows(d,eventId){
+    const rows=d.finance.expenses.filter(x=>!x.voidedAt&&(eventId===undefined||x.eventId===eventId)).map(x=>({...x,source:'manual',productId:''}));
+    if(eventId!=='')d.events.filter(e=>eventId===undefined||e.id===eventId).forEach(e=>e.items.filter(i=>i.external).forEach(i=>{
+      const r=i.external,paid=netCash(d.finance.cash.filter(c=>c.eventId===e.id&&c.productId===i.productId&&!c.expenseId));
+      if(r.status==='cancelado'&&!paid)return;
+      rows.push({id:'',eventId:e.id,productId:i.productId,hallId:'',source:'rental',description:'Alquiler: '+(d.items.find(p=>p.id===i.productId)?.name||i.productId)+(r.supplier?' / '+r.supplier:''),category:'Alquiler externo',date:e.eventDate,amount:r.status==='cancelado'?paid:r.cost==null?null:Math.round(r.cost*100),rentalStatus:r.status});
+    }));
+    return rows.map(x=>{const paid=netCash(d.finance.cash.filter(c=>['pago-gasto','reembolso-proveedor'].includes(c.kind)&&(x.source==='manual'?c.expenseId===x.id:!c.expenseId&&c.eventId===x.eventId&&c.productId===x.productId)));return {...x,paid,pending:x.amount==null?null:Math.max(0,x.amount-paid),credit:x.amount==null?0:Math.max(0,paid-x.amount)};});
+  }
+  function finEvent(d,eid){
+    const event=d.events.find(e=>e.id===eid);if(!event)fail('Evento no encontrado.');
+    const contract=d.finance.contracts.find(c=>c.eventId===eid)||{eventId:eid,base:null,extras:[]},extras=finSum(contract.extras.filter(x=>!x.voidedAt).map(x=>x.amount));
+    const total=contract.base===null?null:finSum([contract.base,extras]),cash=d.finance.cash.filter(c=>c.eventId===eid),received=netCash(cash.filter(c=>['cobro','reembolso-cliente'].includes(c.kind))),expenses=finExpenseRows(d,eid),unknown=expenses.filter(x=>x.amount===null).length,cost=finSum(expenses.map(x=>x.amount||0));
+    return {eventId:eid,contract,extras,total,received,pending:total===null?null:Math.max(0,total-received),credit:total===null?0:Math.max(0,received-total),expenses,cost,unknown,result:total===null||unknown?null:total-cost,cash,paid:netCash(cash.filter(c=>['pago-gasto','reembolso-proveedor'].includes(c.kind)))};
+  }
+  function finMonth(d,month,hall=''){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))fail('Selecciona un mes valido.');
+    if(hall&&!d.halls.some(h=>h.id===hall))fail('Salon invalido.');
+    const matches=e=>!hall||e.hallIds.includes(hall),events=d.events.filter(e=>e.eventDate.slice(0,7)===month&&matches(e)),rows=events.map(e=>({...finEvent(d,e.id),event:e}));
+    const cash=d.finance.cash.filter(c=>!c.voidedAt&&c.date.slice(0,7)===month&&(c.eventId?matches(d.events.find(e=>e.id===c.eventId)):!hall||d.finance.expenses.find(e=>e.id===c.expenseId)?.hallId===hall));
+    const income=finSum(cash.filter(c=>c.kind==='cobro').map(c=>c.amount)),refunds=finSum(cash.filter(c=>c.kind==='reembolso-cliente').map(c=>c.amount)),out=finSum(cash.filter(c=>c.kind==='pago-gasto').map(c=>c.amount)),supplierRefunds=finSum(cash.filter(c=>c.kind==='reembolso-proveedor').map(c=>c.amount));
+    const general=finExpenseRows(d,'').filter(x=>x.date.slice(0,7)===month&&(!hall||x.hallId===hall)),generalCost=finSum(general.map(x=>x.amount)),confirmed=rows.filter(r=>!['cotizacion','cancelado'].includes(r.event.status)),incomplete=confirmed.filter(r=>r.result===null).length;
+    return {month,hall,rows,cash,income,refunds,out,supplierRefunds,net:finSum([income,-refunds,-out,supplierRefunds]),general,generalCost,incomplete,result:incomplete?null:finSum([...confirmed.map(r=>r.result),-generalCost]),pending:finSum(confirmed.map(r=>r.pending||0)),unassignedGeneral:hall?finSum(finExpenseRows(d,'').filter(x=>x.date.slice(0,7)===month&&!x.hallId).map(x=>x.amount)):0};
+  }
+  function setContract(eid,base,by){
+    const value=toCents(base,true),meta=freshFinMeta(by);
+    return commit(d=>setContractValue(d,eid,value,meta.by));
+  }
+  function setContractValue(d,eid,value,actor){
+    const e=d.events.find(e=>e.id===eid);if(!e)fail('Evento no encontrado.');
+    let c=d.finance.contracts.find(c=>c.eventId===eid);
+    if(!c){if(value===null)return;c={eventId:eid,base:null,extras:[]};d.finance.contracts.push(c);}
+    if(c.base===value)return;
+    const old=c.base;c.base=value;
+    movement(d,'finanzas-acuerdo',null,0,`Precio base: ${old===null?'sin definir':(old/100).toFixed(2)} a ${value===null?'sin definir':(value/100).toFixed(2)} Bs.`,e,actor);
+  }
+  function addFinanceRecord(kind,payload,by){
+    const meta=freshFinMeta(by),amount=toCents(payload.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+    return commit(d=>appendFinanceRecord(d,kind,{...payload,amount},meta));
+  }
+  function addExpenseWithPayment(payload,payment,by){
+    const meta=freshFinMeta(by),amount=toCents(payload.amount);
+    if(!amount)fail('El costo del gasto debe ser mayor a cero.');
+    const paid=payment?toCents(payment.amount):0;
+    if(payment&&(!paid||paid>amount))fail('El abono debe ser mayor a cero y no superar el costo del gasto.');
+    return commit(d=>{
+      appendFinanceRecord(d,'expense',{...payload,amount},meta);
+      if(payment)appendFinanceRecord(d,'cash',{id:payment.id,kind:'pago-gasto',amount:paid,eventId:payload.eventId||'',expenseId:payload.id,productId:'',date:payment.date,method:payment.method,note:payment.note||''},meta);
+    });
+  }
+  function appendFinanceRecord(d,kind,payload,meta){
+      const amount=payload.amount;
+      const record={...payload,id:id(payload.id),amount,...meta},e=payload.eventId?d.events.find(e=>e.id===payload.eventId):null;
+      if(kind==='extra'){
+        if(!e)fail('Evento no encontrado.');let c=d.finance.contracts.find(c=>c.eventId===e.id);if(!c){c={eventId:e.id,base:null,extras:[]};d.finance.contracts.push(c);}if(c.extras.some(x=>x.id===record.id))fail('Ese extra ya fue registrado.');c.extras.push(record);
+      }else if(kind==='expense'){
+        if(d.finance.expenses.some(x=>x.id===record.id))fail('Ese gasto ya fue registrado.');d.finance.expenses.push(record);
+      }else if(kind==='cash'){
+        if(d.finance.cash.some(x=>x.id===record.id))fail('Ese pago ya fue registrado.');if(record.date>today())fail('Un pago recibido o realizado no puede tener fecha futura.');
+        if(record.expenseId&&d.finance.expenses.find(x=>x.id===record.expenseId)?.voidedAt)fail('El gasto esta anulado.');d.finance.cash.push(record);
+      }else fail('Operacion financiera invalida.');
+      const reference=record.expenseId?d.finance.expenses.find(x=>x.id===record.expenseId)?.description:record.productId?'Alquiler: '+(d.items.find(x=>x.id===record.productId)?.name||record.productId):'';
+      movement(d,'finanzas-'+kind,null,0,`${kind==='extra'?'Extra':kind==='expense'?'Gasto':record.kind}: Bs ${(amount/100).toFixed(2)}. ${kind==='cash'?record.date+' / '+record.method+' / '+reference+'. ':''}${text(record.description||record.note)}`,e,meta.by);
+  }
+  function voidFinance(kind,rid,reason,by,eid=''){
+    reason=text(reason);const meta=freshFinMeta(by);if(!reason)fail('Escribe el motivo de la anulacion.');
+    return commit(d=>{
+      const list=kind==='extra'?d.finance.contracts.find(c=>c.eventId===eid)?.extras:kind==='expense'?d.finance.expenses:kind==='cash'?d.finance.cash:null,r=list?.find(x=>x.id===rid);
+      if(!r||r.voidedAt)fail('Registro no encontrado o ya anulado.');
+      if(kind==='expense'&&netCash(d.finance.cash.filter(c=>c.expenseId===rid))!==0)fail('Reembolsa o anula los pagos del gasto antes de anularlo.');
+      Object.assign(r,{voidedAt:Date.now(),voidReason:reason,voidBy:meta.by});
+      movement(d,'finanzas-anulacion',null,0,`Anulacion ${kind}: Bs ${(r.amount/100).toFixed(2)}. Motivo: ${reason}`,d.events.find(e=>e.id===(eid||r.eventId)),meta.by);
+    });
+  }
+  function updateFinanceExpense(rid,patch,by){
+    const meta=freshFinMeta(by),amount=toCents(patch.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+    return commit(d=>{
+      const r=d.finance.expenses.find(x=>x.id===rid);if(!r||r.voidedAt)fail('Gasto no encontrado o anulado.');
+      const before=r.amount;
+      Object.assign(r,{amount,description:text(patch.description),category:text(patch.category),date:date(patch.date),hallId:r.eventId?'':text(patch.hallId)});
+      movement(d,'finanzas-expense-edit',null,0,`Gasto ${r.description}: Bs ${(before/100).toFixed(2)} a ${(amount/100).toFixed(2)}. Fecha ${r.date}. Categoria ${r.category}. Salon ${r.hallId||'general / evento'}.`,d.events.find(e=>e.id===r.eventId),meta.by);
+    });
   }
   let data, expected, blocked = '',saving=false,initialized=!window.ElianneStorage,readable=false,persistedToken=null;
   function movement(d, type, p, delta, detail, e, responsible = '') {
@@ -668,7 +819,7 @@
     data=readPrevious();
   } catch (error) {
     blocked = 'No se pudieron leer los datos guardados. No se sobrescribiran. ' + error.message;
-    data = { schemaVersion: 4, revision: 0, halls:clone(DEFAULT_HALLS), items: [], events: [], extras: {}, movements: [] };
+    data = { schemaVersion: 6, revision: 0, halls:clone(DEFAULT_HALLS), items: [], events: [], extras: {}, movements: [], categories:[], finance:{contracts:[],expenses:[],cash:[]} };
   }
   function notify(message, error = false) {
     let el = document.getElementById('systemNotice');
@@ -756,6 +907,7 @@
   function upsertProduct(payload) {
     const p = normalizeProduct(payload);
     return commit(d => {
+      p.category=d.categories.find(c=>categoryKey(c)===categoryKey(p.category))||p.category.normalize('NFC').replace(/\s+/g,' ');
       const old = d.items.find(x => x.id === p.id);
       if (p.code && d.items.some(x => x.id !== p.id && x.code.toLocaleLowerCase() === p.code.toLocaleLowerCase())) fail('Ese codigo ya pertenece a otro producto.');
       if (old && p.qty !== old.qty) fail('Usa Movimientos para cambiar la cantidad de un producto existente.');
@@ -786,11 +938,20 @@
   }
   function saveEvent(payload) {
     const e = normalizeEvent(payload);
+    const hasPrice=Object.hasOwn(payload,'basePrice'),basePrice=hasPrice?toCents(payload.basePrice,true):null;
+    let payment=null;
+    if(payload.payment!=null){
+      if(!obj(payload.payment))fail('Abono del evento invalido.');
+      const amount=toCents(payload.payment.amount,true)||0;
+      if(amount)payment={id:id(payload.payment.id),eventId:e.id,expenseId:'',productId:'',kind:'cobro',amount,date:date(payload.payment.date),method:text(payload.payment.method),note:text(payload.payment.note)};
+    }
     if (!e.responsible) fail('Escribe el responsable del evento.');
     if (e.items.length&&(e.eventDate < e.date || e.venueEndDate > e.returnDate)) fail('Las fechas del evento deben estar entre la salida y la devolucion del material.');
     if(!e.hallIds.length)fail('Selecciona al menos un salon para el evento.');
     return commit(d => {
       const old = d.events.find(x => x.id === e.id);
+      const currentPrice=d.finance.contracts.find(c=>c.eventId===e.id)?.base??null;
+      if(old&&(hasPrice||payment)&&Object.hasOwn(payload,'expectedBasePrice')&&currentPrice!==payload.expectedBasePrice&&(!hasPrice||currentPrice!==basePrice))fail('El precio cambio desde que abriste el formulario. Reabre el evento antes de cambiar su precio o registrar un abono.');
       if(old&&!Object.hasOwn(payload,'guestCount'))e.guestCount=old.guestCount;
       if (old && !['cotizacion', 'reservado'].includes(old.status)) fail('Solo puedes editar cotizaciones o reservas.');
       if (!['cotizacion', 'reservado'].includes(e.status)) fail('Usa los botones de salida y devolucion para cambiar de estado.');
@@ -818,6 +979,8 @@
         movement(d,'evento-creado',null,0,`Evento creado. Estado: ${stateName(e.status)}. Invitados: ${e.guestCount==null?'sin definir':e.guestCount}.`,e,actor);
         e.items.filter(i=>i.external).forEach(i=>movement(d,'alquiler-'+i.external.status,null,0,`${d.items.find(p=>p.id===i.productId)?.name||i.productId}: ${rentalDescription(i.external)}.`,e,actor));
       }
+      if(hasPrice)setContractValue(d,e.id,basePrice,actor);
+      if(payment)appendFinanceRecord(d,'cash',payment,freshFinMeta(actor));
     });
   }
   function rentalDescription(r){return r?`${r.qty} unidades, ${r.status}, proveedor ${r.supplier||'por definir'}, costo total ${r.cost==null?'sin definir':'Bs '+r.cost}, entrega ${r.deliveryDate}, devolucion ${r.returnDate}${r.notes?', nota: '+r.notes:''}`:'sin alquiler';}
@@ -983,6 +1146,8 @@
   }):Promise.resolve();
   window.Elianne = { ready,isReady:()=>initialized,saving:()=>saving,get: () => clone(data), today, uid, quantity,ownQty,saveRental, backup: () => {if(!readable)fail('No se pudo leer la base local. No se generara un respaldo vacio.');return { ...clone(data), exportedAt: new Date().toISOString(), application: 'Inventario Elianne' };}, prepareRestore, restore, upsertProduct, deleteProduct, saveExtra, saveEvent, transition, saveReturn, adjust, notify, saveHalls, assignVenue, venueRange, occupiesHall,updateGuests,eventHistory:eventId=>clone(data.movements.filter(m=>m.eventId===eventId)),
     hallConflicts:e=>clone(hallConflicts(data,e)),onVenueDay:(e,key)=>{const span=venueRange(e),start=civilMinute(key);return span.start<start+1440&&start<span.end;},
+    addCategory,categoryKey,categories:()=>[...data.categories],moneyCents:toCents,
+    setContract,addFinanceRecord,addExpenseWithPayment,voidFinance,updateFinanceExpense,financeEvent:eid=>clone(finEvent(data,eid)),financeMonth:(month,hall)=>clone(finMonth(data,month,hall)),
     reserved: (pid, start, end, except) => reserved(data, pid, start, end, except), available: (pid, start, end, except) => available(data, pid, start, end, except), extra: pid => clone(getExtra(data, pid)), active, blocked: () => blocked };
   window.addEventListener('storage', e => { if (e.key === KEY) notify('Los datos cambiaron en otra pestaña. Recarga antes de seguir editando.', true); });
   window.addEventListener('beforeunload',event=>{if(saving){event.preventDefault();event.returnValue='';}});
@@ -994,6 +1159,7 @@
       const STORAGE_KEY = "elianneInventory.v1";
       const state = { items: [], editingId: null, photo: "" };
       const $ = (id) => document.getElementById(id);
+      const categorySuggestions=[...$('categoryInput').options].map(option=>option.value).filter(Boolean);
       const els = {
         form: $("productForm"), formTitle: $("formTitle"), photoInput: $("photoInput"), photoPreview: $("photoPreview"), photoEmpty: $("photoEmpty"), photoTools: $("photoTools"),
         removePhotoBtn: $("removePhotoBtn"), name: $("nameInput"), qty: $("qtyInput"), unit: $("unitInput"), code: $("codeInput"), category: $("categoryInput"), location: $("locationInput"), notes: $("notesInput"),
@@ -1088,15 +1254,18 @@
       }
 
       function categories() {
-        return [...new Set(state.items.map((item) => clean(item.category)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+        return window.Elianne.categories();
+      }
+      function setCategorySelection(value) {
+        els.category.value=[...els.category.options].find(option=>window.Elianne.categoryKey(option.value)===window.Elianne.categoryKey(value))?.value||'';
       }
 
       function filteredItems() {
         const query = normalize(els.search.value);
-        const category = normalize(els.filter.value);
+        const category = window.Elianne.categoryKey(els.filter.value);
         let items = state.items.filter((item) => {
           const text = normalize([item.name, item.code, item.category, item.location, item.notes].join(" "));
-          return (!query || text.includes(query)) && (!category || normalize(item.category) === category);
+          return (!query || text.includes(query)) && (!category || window.Elianne.categoryKey(item.category) === category);
         });
         const sort = els.sort.value;
         items.sort((a, b) => {
@@ -1110,8 +1279,12 @@
 
       function renderFilters() {
         const current = els.filter.value;
+        const selected=els.category.value;
         els.filter.innerHTML = '<option value="">Todas las categorias</option>' + categories().map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join("");
         els.filter.value = current;
+        const seen=new Set(),suggestions=[...categories(),...categorySuggestions].filter(name=>{const key=window.Elianne.categoryKey(name);if(seen.has(key))return false;seen.add(key);return true;});
+        els.category.innerHTML='<option value="">Seleccionar categoria</option>'+suggestions.sort((a,b)=>a.localeCompare(b,'es')).map(name=>`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+        setCategorySelection(selected);
       }
 
       function renderStats() {
@@ -1180,7 +1353,7 @@
         els.qty.title = "Cambia las cantidades desde Movimientos para conservar el historial.";
         els.unit.value = item.unit || "unidades";
         els.code.value = item.code || "";
-        els.category.value = item.category || "";
+        setCategorySelection(item.category || "");
         els.location.value = item.location || "";
         els.notes.value = item.notes || "";
         els.formTitle.textContent = "Editar producto";
@@ -1463,7 +1636,7 @@
         reader.onload = async () => {
           try {
             const imported = window.Elianne.prepareRestore(JSON.parse(reader.result));
-            if (!confirm("Restaurar este respaldo reemplazara los datos actuales. Se descargara primero una copia de los datos actuales. Continuar?")) return;
+            if (!confirm("Restaurar este respaldo reemplazara inventario, eventos, finanzas e historial actuales. Se descargara primero una copia completa. Un respaldo anterior puede no incluir finanzas. Continuar?")) return;
             if(!backup())return;
             await window.Elianne.restore(imported);
             resetForm();
@@ -1511,6 +1684,15 @@
     
 })().catch(error=>window.Elianne.notify(error.message,true));</script>
   <style>.salon-module{margin-top:0;min-width:0}
+.event-form-intro{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.expense-payment-choice{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:14px;border:1px solid #bddfca;border-radius:8px;background:#eef8f2;min-width:0}.expense-payment-choice>div{min-width:0}.expense-payment-choice .row{gap:12px}.expense-payment-balance{font-size:14px;margin:0;line-height:1.5}.event-card-expenses{font-size:13px;color:#893c2b;margin:10px 0;overflow-wrap:anywhere}
+.event-expenses-open{background:#fff1ee;border-color:#dfb6aa;color:#893c2b}.detail-top{flex-wrap:wrap}.event-expense-panel{min-width:0;margin:24px 0;padding:20px;border:1px solid #e6c3b8;border-left:4px solid #a84d36;border-radius:10px;background:#fff5f0;scroll-margin-top:115px}.salon-module #detailFinance .event-expense-panel h4{margin:0;font-size:18px;color:#893c2b}.event-expense-panel .finance-section-heading{margin-bottom:12px}.event-expense-panel .finance-metrics{grid-template-columns:repeat(3,minmax(0,1fr));margin:18px 0}.event-expense-help{font-size:13px;line-height:1.6;color:#5a4f4a}.event-expense-panel .table-wrap{margin-top:16px}.event-expense-panel .salon-muted{line-height:1.6}.event-expense-panel h4:focus-visible{outline:2px solid #a84d36;outline-offset:4px}
+@media(max-width:600px){.event-expense-panel{padding:14px 11px}.event-expense-panel .finance-metrics{grid-template-columns:minmax(0,1fr);gap:12px}}
+.event-form-step{--step-accent:#285ba8;--step-tint:#f0f5ff;--step-line:#c5d6ef;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:18px 16px;border:1px solid var(--step-line);border-left:4px solid var(--step-accent);border-radius:10px;background:var(--step-tint)}.event-form-step>*{min-width:0}
+.event-step-venue{--step-accent:#6e42a6;--step-tint:#f7f2fc;--step-line:#ddcdec}.event-step-material{--step-accent:#a3630b;--step-tint:#fff8eb;--step-line:#eddbb5}.event-step-payment{--step-accent:#166b52;--step-tint:#eef8f2;--step-line:#bddfca}
+.event-step-heading{display:flex;align-items:flex-start;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--step-line)}.event-step-heading>div{min-width:0}.event-step-number{display:grid;place-items:center;flex:none;width:29px;height:29px;border-radius:50%;background:var(--step-accent);color:#fff;font-size:14px;font-weight:750}.salon-module .event-step-heading h3{margin:0;font-size:16px;line-height:1.4;color:var(--step-accent)}.event-step-heading p{margin:4px 0 0;font-size:12px;line-height:1.5;color:#4d5e6b}
+.event-form-step .field,.event-form-step .row{min-width:0}.event-form-step input,.event-form-step select,.event-form-step textarea{background:#fff}.event-form-step .venue-fields{border:0;padding:0}.event-form-step .event-payment-summary{border-bottom:0;padding-bottom:0;border-top-color:var(--step-line)}
+@media(max-width:480px){.event-form-step{padding:14px 11px;gap:12px}.event-step-heading{gap:8px}.salon-module .event-step-heading h3{font-size:15px}}
 .topbar h1{font-size:32px;line-height:1.15}.topbar .subtitle{font-size:14px}
 .inventory-heading,.agenda-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:4px 0 18px}
 .agenda-metrics{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:13px}
@@ -1579,6 +1761,20 @@
 .salon-grid>*{min-width:0}.salon-module .form{padding:0 0 16px;grid-template-columns:minmax(0,1fr)}.salon-module .form>*{min-width:0}
 .salon-module h2{font-size:18px}.salon-module h3{font-size:16px;margin-bottom:8px;overflow-wrap:anywhere}
 .salon-event-column{display:grid;gap:12px;min-width:0}
+.event-payment-fields{display:grid;gap:12px;min-width:0}.event-payment-fields .field{min-width:0}.event-payment-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.event-payment-summary>div{min-width:0}.event-payment-summary dt{font-size:12px;color:var(--muted);margin-bottom:4px}.event-payment-summary dd{font-size:15px;font-weight:700;margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.event-card-payment{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:12px}.event-card-payment dd{font-size:13px}
+@media(max-width:600px){.event-card-payment{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.finance-section-heading{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px}.finance-section-heading h2,.finance-section-heading h3{margin:0!important}.finance-section-heading .actions{margin:0;flex-wrap:wrap}
+.salon-module #detailFinance{scroll-margin-top:115px}
+@media(max-width:600px){.salon-module .finance-table{display:block;min-width:0;background:transparent}.salon-module .finance-table thead{display:none}.salon-module .finance-table tbody{display:grid;gap:12px}.salon-module .finance-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px;background:white;border:1px solid var(--line);border-radius:4px}.salon-module .finance-table td{display:block;min-width:0!important;border:0;padding:0;overflow-wrap:anywhere}.salon-module .finance-table td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);margin-bottom:4px}.salon-module .finance-table td:first-child,.salon-module .finance-table td:last-child{grid-column:1/-1}.salon-module .finance-table .finance-row-actions{min-width:0}.salon-module .finance-table .finance-void{background:#f5f6f7}}
+.finance-filters{display:grid;grid-template-columns:minmax(180px,240px) minmax(180px,280px);gap:14px;margin-bottom:22px}.finance-filters .field{min-width:0}.finance-filters input,.finance-filters select{min-width:0;width:100%}
+.finance-band{padding:22px 0;border-top:1px solid var(--line);min-width:0}.finance-band>h3{margin:0 0 16px}.finance-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:16px 0 20px}.finance-metric{min-width:0;border-left:3px solid #b6d3ce;padding:3px 0 3px 12px}.finance-metric:nth-child(2){border-left-color:#e3c38d}.finance-metric:nth-child(3){border-left-color:#9bbbe0}.finance-metric:nth-child(4){border-left-color:#d4a5b3}.finance-metric span{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:5px}.finance-metric strong{font-size:20px;line-height:1.4;overflow-wrap:anywhere}.finance-negative strong{color:#a12c3e}
+.finance-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 20px;margin:0 0 24px}.finance-breakdown>div{min-width:0}.finance-breakdown dt{font-size:12px;color:var(--muted);margin-bottom:4px}.finance-breakdown dd{margin:0;font-size:14px;overflow-wrap:anywhere}.finance-table{min-width:720px}.finance-table td{line-height:1.5}.finance-table td p{font-size:12px;margin:5px 0 0}.finance-number{font-variant-numeric:tabular-nums;min-width:110px}.finance-credit{color:#875106}.finance-row-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:130px}.finance-void{color:#747b83;background:#f5f6f7}.finance-event-link{padding:0;background:none;border:0;color:#076c64;font-weight:700;text-align:left;font-size:14px;cursor:pointer;overflow-wrap:anywhere}.finance-event-link:hover{text-decoration:underline}.finance-extras{list-style:none;padding:0;margin:0 0 20px}.finance-extras li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.finance-extras li span{min-width:0;overflow-wrap:anywhere}.finance-extras .btn{flex-shrink:0}#detailFinance h4{font-size:14px;margin:24px 0 12px}#detailFinance{scroll-margin-top:15px}.finance-dialog{width:min(600px,calc(100% - 24px))}.finance-dialog #financeFields{display:grid;gap:14px;min-width:0}.finance-dialog .row,.finance-dialog .field{min-width:0}.finance-dialog .form{padding-top:16px}.finance-dialog p{overflow-wrap:anywhere}
+@media(max-width:1000px){.finance-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.finance-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.finance-filters{grid-template-columns:minmax(0,1fr)}.finance-section-heading .actions{gap:6px}.finance-metrics{gap:14px 10px}.finance-metric{padding-left:8px}.finance-metric strong{font-size:17px}.finance-breakdown{gap:12px}.finance-dialog{padding:14px}.finance-dialog h2{font-size:18px}.finance-extras li{align-items:flex-start}}
+.event-list-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
+.event-list-filters .field{min-width:0}.event-list-filters input,.event-list-filters select{min-width:0;width:100%}
+.event-list-search{grid-column:1/-1}.event-list-summary{margin:0;font-size:13px;overflow-wrap:anywhere}
+@media(max-width:600px){.event-list-filters{grid-template-columns:minmax(0,1fr)}}
 .salon-tools{display:flex;gap:10px;margin:12px 0;align-items:center}
 .salon-tools input{min-width:0}.salon-tools select{max-width:200px}
 .salon-list{display:grid;gap:12px;min-width:0}
@@ -1587,6 +1783,26 @@
 .salon-mini>div{min-width:0}.salon-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .salon-muted{color:var(--muted);font-size:13px;margin-top:8px}
 .salon-assign{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:end}
+.catalog-open{justify-self:start;max-width:100%;white-space:normal}
+.catalog-dialog{width:min(1320px,calc(100% - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:#f6f8fa;overflow:auto}
+.catalog-dialog::backdrop{background:#17202680}
+.catalog-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:22px 24px;border-bottom:1px solid var(--line);background:white}
+.catalog-heading>div{min-width:0}.catalog-heading p{margin:6px 0 0;overflow-wrap:anywhere;color:var(--muted);font-size:14px}.catalog-heading .catalog-brand{font-size:12px;font-weight:800;color:var(--accent);margin:0 0 7px}.salon-module .catalog-heading h2{font-size:26px;margin:0;line-height:1.2}.catalog-heading>.btn{flex-shrink:0}
+.catalog-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:22px;padding:20px 24px;align-items:start}.catalog-browser{min-width:0}
+.catalog-category-tools{display:grid;grid-template-columns:minmax(0,1fr);margin-bottom:14px;min-width:0}.catalog-category-tools .field{min-width:0}.catalog-category-tools select{width:100%;min-width:0;text-overflow:ellipsis}.category-entry{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}.category-entry input,.category-entry select{min-width:0;flex:1 1 160px;text-overflow:ellipsis}.category-entry .btn{flex-shrink:0}.category-dialog{width:min(460px,calc(100% - 24px))}.category-dialog .form{padding-top:16px}.category-dialog h2{margin:0;font-size:19px}.category-dialog p{overflow-wrap:anywhere}
+@media(max-width:480px){.category-dialog{padding:14px}}
+.catalog-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;align-items:center;margin-bottom:16px}.catalog-search label{grid-column:1/-1;font-size:12px;color:var(--muted);font-weight:700}.catalog-search input{min-width:0;max-width:100%}.catalog-search>span{font-size:12px;color:var(--muted)}
+.catalog-products{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:stretch}.catalog-product{min-width:0;border:1px solid var(--line);border-radius:6px;background:white;overflow:hidden;display:flex;flex-direction:column}
+.catalog-photo{display:grid;place-items:center;position:relative;min-width:0;aspect-ratio:4/3;overflow:hidden;background:white;border-bottom:1px solid #edf0f2}.catalog-photo img{width:100%;height:100%;position:absolute;inset:0;object-fit:contain;padding:12px}.catalog-photo-empty{color:var(--muted);font-size:13px;background:#f2f5f7;display:grid;place-items:center;width:100%;height:100%}
+.catalog-product-data{padding:12px;display:flex;flex-direction:column;flex:1;min-width:0}.salon-module .catalog-product h3{font-size:14px;line-height:1.4;margin:0 0 5px;overflow-wrap:anywhere}.catalog-product p,.catalog-cart p{margin:0 0 7px;font-size:12px;overflow-wrap:anywhere}.catalog-code{color:var(--muted)}.catalog-availability{font-weight:650}.catalog-availability span{font-weight:400}.catalog-low{color:#9b4a08}.catalog-selected{min-height:18px;color:#076c64}.catalog-product-actions{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.catalog-stepper{display:grid;grid-template-columns:28px minmax(38px,1fr) 28px;width:116px;max-width:100%;height:36px;border:1px solid var(--line);border-radius:4px;overflow:hidden;flex:1 1 110px}.catalog-stepper button{border:0;background:#f8fafb;color:var(--ink);font-size:18px;padding:0;cursor:pointer}.catalog-stepper input{width:100%;min-width:0;min-height:0;height:34px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);padding:3px;text-align:center;font-size:13px;border-radius:0;appearance:textfield;box-shadow:none}.catalog-stepper input::-webkit-inner-spin-button,.catalog-stepper input::-webkit-outer-spin-button{appearance:none;margin:0}.catalog-product-actions>.btn{min-height:36px;flex:1 0 auto;justify-content:center}
+.catalog-selection{min-width:0;padding-left:18px;border-left:1px solid var(--line)}.salon-module .catalog-selection>h3{font-size:18px;margin:0 0 14px}.catalog-cart{display:grid;gap:0}.catalog-cart-row{display:grid;grid-template-columns:66px minmax(0,1fr);gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.catalog-cart-row>.catalog-photo{width:66px;aspect-ratio:1;border:1px solid var(--line);border-radius:4px}.catalog-cart .catalog-photo img{padding:5px}.catalog-cart .catalog-photo-empty{font-size:10px}.catalog-cart-data{min-width:0}.catalog-cart h4{margin:0 0 5px;font-size:13px;line-height:1.4;overflow-wrap:anywhere}.catalog-cart-actions{display:flex;gap:8px;margin-bottom:8px;align-items:center}.catalog-cart-actions input{width:100%;max-width:115px;min-width:0;min-height:35px;padding:6px;font-size:13px}.catalog-cart-actions .btn{min-height:35px}.catalog-rent{margin-top:3px}.catalog-coverage{line-height:1.4}
+.catalog-footer{position:sticky;bottom:0;background:white;border-top:1px solid var(--line);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;z-index:2}.catalog-footer>div{min-width:0}.catalog-footer strong{font-size:14px}.catalog-footer p{font-size:12px;margin:5px 0 0;overflow-wrap:anywhere}.catalog-footer .btn{flex-shrink:0}.catalog-empty{grid-column:1/-1}
+.catalog-footer-actions{display:flex;gap:8px;flex-shrink:0}.catalog-mobile-selection{display:none}
+@media(max-width:1160px){.catalog-products{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-layout{grid-template-columns:minmax(0,1fr) 280px}}
+@media(max-width:760px){.catalog-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px)}.catalog-layout{grid-template-columns:minmax(0,1fr);padding:16px;gap:24px}.catalog-heading{padding:18px 16px;gap:12px}.salon-module .catalog-heading h2{font-size:21px}.catalog-selection{padding:18px 0 0;border-left:0;border-top:1px solid var(--line)}.catalog-footer{padding:12px 16px}.catalog-footer .btn{max-width:160px;white-space:normal}.catalog-cart-row{grid-template-columns:60px minmax(0,1fr)}.catalog-footer strong{font-size:12px}}
+@media(max-width:380px){.catalog-products{grid-template-columns:minmax(0,1fr)}.catalog-product{display:grid;grid-template-columns:90px minmax(0,1fr)}.catalog-product>.catalog-photo{aspect-ratio:auto;border-bottom:0;border-right:1px solid var(--line)}.catalog-product-data{padding:10px}.catalog-heading{gap:8px}.catalog-heading>.btn{padding:8px}.catalog-footer{flex-wrap:wrap;gap:10px}.catalog-footer .btn{width:100%;max-width:none}}
+@media(max-width:760px){.catalog-mobile-selection{display:block}.catalog-footer{flex-wrap:wrap;gap:10px}.catalog-footer-actions{width:100%}.catalog-footer-actions .btn{flex:1;min-width:0;max-width:none;width:auto}}
 .table-wrap{overflow-x:auto;max-width:100%;min-width:0}
 .salon-table{width:100%;min-width:420px;border-collapse:collapse;font-size:13px;background:white}
 .salon-table th,.salon-table td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -1633,6 +1849,8 @@ button:disabled{opacity:.5;cursor:not-allowed}input:read-only{background:#eef2f5
   const prodStatus = { disponible: 'Disponible', limpieza: 'En limpieza', mantenimiento: 'Mantenimiento', danado: 'Dañado', baja: 'Baja' };
   const types = { 'saldo-inicial': 'Saldo inicial', alta: 'Alta', edicion: 'Edicion', compra: 'Compra', reparacion: 'Reparacion', recuperacion: 'Recuperacion', baja: 'Baja', 'correccion-entrada': 'Correccion +', 'correccion-salida': 'Correccion -', salida: 'Salida', devolucion: 'Devolucion', 'daño': 'Daño', faltante: 'Faltante' };
   let draft = [], editing = null;
+  let eventPriceBaseline='',eventPriceExpected=null;
+  let eventPaymentId=api.uid();
   let selectedDay = today(), calendarMonth = today().slice(0, 7);
   let assigning=null;
   let historyEventId=null;
@@ -1926,12 +2144,14 @@ function renderEventDetail(){
   $('detailTitle').textContent=e.client;
   $('detailMetrics').innerHTML=`<div><span>Fecha del evento</span><strong>${reportDate(e.eventDate)}</strong></div><div><span>Salon</span><strong>${hallDots(e)} ${esc(hallNames(e))}</strong></div><div><span>Invitados</span><strong>${guestsLabel(e)}</strong></div><div><span>Estado</span><strong>${statuses[e.status]}</strong></div>`;
   $('detailEdit').hidden=!['cotizacion','reservado'].includes(e.status)||detailEditing;
+  $('detailExpensesOpen').hidden=detailEditing;
   $('detailEditorHost').hidden=!detailEditing;$('detailReadOnly').hidden=detailEditing;
   $('detailData').innerHTML=`<dl class="detail-data">${[['Tipo',e.type],['Responsable',e.responsible||'Sin registrar'],['Lugar',e.place||'Sin registrar'],['Ocupacion',e.venueMode==='hours'?`${reportDate(e.eventDate)} ${e.startTime} a ${reportDate(e.venueEndDate)} ${e.endTime}`:`${reportDate(e.eventDate)} al ${reportDate(e.venueEndDate)} - dia completo`],['Montaje / limpieza',`${e.setupMinutes} min / ${e.cleanupMinutes} min`],['Salida prevista',reportDate(e.date)],['Salida registrada',e.departureDate?reportDate(e.departureDate):'Sin registrar'],['Devolucion prevista',reportDate(e.returnDate)]].map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>${e.notes?`<p class="detail-notes">${esc(e.notes)}</p>`:''}`;
   $('detailStateActions').innerHTML=(e.status==='cotizacion'?button('Confirmar reserva','reserve',e.id,'primary'):'')+(['cotizacion','reservado'].includes(e.status)?button('Cancelar evento','cancel',e.id,'danger'):'')+(e.status!=='cancelado'?button('Editar salones / horario','assign',e.id):'');
   const pending=eventDetailPending(e);$('detailPending').innerHTML=pending.length?`<ul>${pending.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:'<p class="salon-muted">Sin pendientes registrados.</p>';
   $('detailMaterials').innerHTML=e.items.length?`<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto / codigo</th><th>Solicitado</th><th>Propios</th><th>Externos</th></tr></thead><tbody>${e.items.map(i=>`<tr><td>${esc(product(i.productId)?.name||'Producto')}<br><span class="salon-muted">${esc(product(i.productId)?.code||'Sin codigo')}</span></td><td>${i.qty}</td><td>${api.ownQty(i)}</td><td>${i.qty-api.ownQty(i)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="salon-muted">Sin materiales asignados.</p>';
   $('detailRentals').innerHTML=detailRentalsHtml(e);
+  renderEventFinance(e);
   $('detailDocuments').innerHTML=button('PDF entrega','pdf',e.id)+button('PDF devolucion','return-pdf',e.id)+'<button type="button" class="btn small" id="detailHistoryExport">Historial CSV</button>';
   const card=document.querySelector(`#salonReturnList [data-return-card="${e.id}"]`),slot=$('detailReturnSlot');
   if(card){slot.replaceChildren(card);}
@@ -1954,6 +2174,320 @@ function initEventDetail(){
   window.addEventListener('beforeunload',event=>{if(detailEditorDirty()||detailHistoryDirty()){event.preventDefault();event.returnValue='';}});
 }
 
+  let catalogDraft=[],catalogBaseline='',catalogCategory='',catalogProducts=[];
+const catalogDisabled=new Map();
+const catalogItem=pid=>catalogProducts.find(p=>p.id===pid);
+const catalogDirty=()=>JSON.stringify(catalogDraft)!==catalogBaseline||Boolean($('catalogDialog').querySelector('[data-cart-qty][aria-invalid="true"]'));
+const catalogMin=i=>i.external&&i.external.status!=='cancelado'?Math.max(1,Number(i.external.qty)||0):1;
+const catalogLocked=i=>i.external&&['recibido','devuelto'].includes(i.external.status);
+function catalogPhoto(p){
+  return `<span class="catalog-photo">${p?.photo?`<img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`:''}<span class="catalog-photo-empty" ${p?.photo?'hidden':''}>Sin foto</span></span>`;
+}
+function catalogMessage(message,error=false){$('catalogMessage').textContent=message;$('catalogMessage').classList.toggle('invalid',error);}
+function catalogQuantity(input,min=1){
+  try{const qty=api.quantity(input.value);if(qty<min)throw new Error('La cantidad minima es '+min+'.');input.setAttribute('aria-invalid','false');return qty;}
+  catch(error){input.setAttribute('aria-invalid','true');catalogMessage(error.message,true);return null;}
+}
+function syncCatalogSaving(){
+  if(!$('catalogDialog').open)return;
+  if(api.saving())$('catalogDialog').querySelectorAll('button,input,select').forEach(el=>{if(!catalogDisabled.has(el))catalogDisabled.set(el,el.disabled);el.disabled=true;});
+  else{catalogDisabled.forEach((disabled,el)=>{if(el.isConnected)el.disabled=disabled;});catalogDisabled.clear();updateCatalogTotals();}
+}
+function openCatalog(){
+  if(api.saving())return;
+  const [a,b]=period();
+  if(!$('salonDate').value||!$('salonEnd').value||b<a){api.notify('Completa las fechas de salida y devolucion antes de seleccionar productos.',true);$('salonDate').focus();return;}
+  catalogProducts=api.get().items;catalogDraft=JSON.parse(JSON.stringify(draft));catalogBaseline=JSON.stringify(catalogDraft);catalogCategory='';
+  $('catalogSearch').value='';catalogMessage('');
+  const eventHalls=readVenue('event').hallIds;
+  $('catalogContext').textContent=[$('salonClient').value||'Nuevo evento',$('salonEventDate').value?reportDate($('salonEventDate').value):'',api.get().halls.filter(h=>eventHalls.includes(h.id)).map(h=>h.name).join(' + ')].filter(Boolean).join(' · ');
+  $('catalogPeriod').textContent='Materiales: '+reportDate(a)+' al '+reportDate(b);
+  renderCatalog(false);$('catalogDialog').showModal();$('catalogSearch').focus();
+}
+function closeCatalog(){
+  if(api.saving()||(catalogDirty()&&!confirm('Hay una seleccion sin confirmar. Descartar estos cambios?')))return;
+  $('catalogDialog').close();$('salonCatalogOpen').focus();
+}
+function renderCatalog(preserve=true){
+  const categories=api.categories();
+  catalogCategory=categories.find(c=>api.categoryKey(c)===api.categoryKey(catalogCategory))||'';
+  $('catalogCategory').innerHTML='<option value="">Todas las categorias</option>'+categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  $('catalogCategory').value=catalogCategory;
+  renderCatalogProducts(preserve);renderCatalogCart(preserve);syncCatalogSaving();
+}
+function renderCatalogProducts(preserve=true){
+  const quantities=new Map(preserve?[...$('catalogProducts').querySelectorAll('[data-catalog-qty]')].map(el=>[el.dataset.catalogQty,{value:el.value,invalid:el.getAttribute('aria-invalid')}]):[]);
+  const query=$('catalogSearch').value.trim().toLocaleLowerCase(),[a,b]=period();
+  const products=catalogProducts.filter(p=>(!catalogCategory||api.categoryKey(p.category)===api.categoryKey(catalogCategory))&&[p.name,p.code,p.category].join(' ').toLocaleLowerCase().includes(query));
+  $('catalogResults').textContent=products.length+' '+(products.length===1?'modelo':'modelos');
+  $('catalogProducts').innerHTML=products.length?products.map(p=>{
+    const available=api.available(p.id,a,b,editing),state=api.extra(p.id).status;
+    return `<article class="catalog-product" data-catalog-product="${esc(p.id)}">${catalogPhoto(p)}<div class="catalog-product-data"><h3>${esc(p.name)}</h3><p class="catalog-code">${esc(p.code||'Sin codigo')}</p><p class="catalog-availability ${available===0?'catalog-low':''}">Disponibles: ${available} <span>${esc(p.unit)}</span></p>${state!=='disponible'?`<p class="catalog-low">${prodStatus[state]}</p>`:''}<p class="catalog-selected" data-catalog-selected="${esc(p.id)}"></p><div class="catalog-product-actions"><div class="catalog-stepper"><button type="button" data-catalog-step="-1" aria-label="Reducir cantidad de ${esc(p.name)}" title="Reducir cantidad">&#8722;</button><input type="number" min="1" max="100000000" step="1" value="1" data-catalog-qty="${esc(p.id)}" aria-label="Cantidad de ${esc(p.name)}"><button type="button" data-catalog-step="1" aria-label="Aumentar cantidad de ${esc(p.name)}" title="Aumentar cantidad">+</button></div><button type="button" class="btn primary small" data-catalog-add="${esc(p.id)}">Agregar</button></div></div></article>`;
+  }).join(''):`<div class="empty catalog-empty">${catalogProducts.length?'No hay productos para esta categoria o busqueda.':'No hay productos registrados en el inventario.'}</div>`;
+  $('catalogProducts').querySelectorAll('[data-catalog-qty]').forEach(el=>{const previous=quantities.get(el.dataset.catalogQty);if(previous){el.value=previous.value;if(previous.invalid!==null)el.setAttribute('aria-invalid',previous.invalid);}});
+  updateCatalogTotals();
+}
+function renderCatalogCart(preserve=true){
+  const invalid=new Map(preserve?[...$('catalogCart').querySelectorAll('[data-cart-qty][aria-invalid="true"]')].map(el=>[el.dataset.cartQty,el.value]):[]);
+  $('catalogCart').innerHTML=catalogDraft.length?catalogDraft.map(i=>{
+    const p=catalogItem(i.productId);
+    return `<div class="catalog-cart-row" data-cart-row="${esc(i.productId)}">${catalogPhoto(p)}<div class="catalog-cart-data"><h4>${esc(p?.name||'Producto eliminado')}</h4><p class="catalog-code">${esc(p?.code||'Sin codigo')}</p><div class="catalog-cart-actions"><input type="number" min="${catalogMin(i)}" max="100000000" step="1" value="${i.qty}" data-cart-qty="${esc(i.productId)}" aria-label="Seleccionadas de ${esc(p?.name||'Producto')}"><button type="button" class="btn small" data-catalog-remove="${esc(i.productId)}" ${catalogLocked(i)?'disabled':''}>Quitar</button></div><p class="catalog-coverage" data-catalog-coverage="${esc(i.productId)}"></p><button type="button" class="btn small catalog-rent" data-catalog-rent="${esc(i.productId)}" hidden>Alquiler externo</button></div></div>`;
+  }).join(''):'<p class="empty">Sin productos seleccionados.</p>';
+  $('catalogCart').querySelectorAll('[data-cart-qty]').forEach(el=>{if(invalid.has(el.dataset.cartQty)){el.value=invalid.get(el.dataset.cartQty);el.setAttribute('aria-invalid','true');}});
+  updateCatalogTotals();
+}
+function updateCatalogTotals(){
+  const [a,b]=period();let shortages=0;
+  for(const i of catalogDraft){
+    const need=Math.max(0,api.ownQty(i)-api.available(i.productId,a,b,editing));shortages+=need;
+    const label=$('catalogCart').querySelector(`[data-catalog-coverage="${i.productId}"]`);
+    if(label){label.textContent=need?`Faltan ${need} propios`:i.external&&i.external.status!=='cancelado'?`${i.external.qty} externos · ${rentalLabels[i.external.status]}`:'Cubierto con material propio';label.classList.toggle('catalog-low',need>0);}
+    const rent=$('catalogCart').querySelector(`[data-catalog-rent="${i.productId}"]`);if(rent)rent.hidden=!need;
+  }
+  $('catalogProducts').querySelectorAll('[data-catalog-selected]').forEach(el=>{const i=catalogDraft.find(i=>i.productId===el.dataset.catalogSelected);el.textContent=i?'Seleccionados: '+i.qty:'';});
+  $('catalogTotals').textContent=`${catalogDraft.length} ${catalogDraft.length===1?'modelo':'modelos'} · ${catalogDraft.reduce((sum,i)=>sum+i.qty,0)} unidades`;
+  $('catalogShortage').hidden=!shortages;$('catalogShortage').textContent=`Faltan ${shortages} unidades propias por cubrir con alquiler externo.`;
+  $('catalogConfirm').disabled=api.saving()||Boolean($('catalogCart').querySelector('[aria-invalid="true"]'));
+}
+function confirmCatalog(rentalPid){
+  if(api.saving())return;
+  try{
+    if($('catalogCart').querySelector('[aria-invalid="true"]'))throw new Error('Revisa las cantidades de la seleccion.');
+    const availableIds=new Set(api.get().items.map(p=>p.id));
+    catalogDraft.forEach(i=>{if(!availableIds.has(i.productId))throw new Error('Un producto de la seleccion ya no existe.');if(api.quantity(i.qty)<catalogMin(i))throw new Error('Revisa la cantidad y el alquiler externo del producto.');});
+    draft=JSON.parse(JSON.stringify(catalogDraft));renderDraft();$('catalogDialog').close();$('salonCatalogOpen').focus();
+    if(rentalPid){const index=draft.findIndex(i=>i.productId===rentalPid);document.querySelector(`[data-draft-rent="${index}"]`)?.click();}
+  }catch(error){catalogMessage(error.message,true);}
+}
+function initCatalog(){
+  document.querySelector('.salon-module').insertAdjacentHTML('beforeend',`<dialog id="catalogDialog" class="catalog-dialog" aria-labelledby="catalogTitle" aria-describedby="catalogContext"><header class="catalog-heading"><div><p class="catalog-brand">ELIANNE</p><h2 id="catalogTitle">Seleccionar productos</h2><p id="catalogContext"></p><p id="catalogPeriod"></p></div><button type="button" class="btn" id="catalogClose">Cerrar</button></header><div class="catalog-layout"><section class="catalog-browser" aria-label="Catalogo de productos"><div class="catalog-category-tools"><div class="field"><label for="catalogCategory">Categoria</label><select id="catalogCategory"></select></div></div><div class="catalog-search"><label for="catalogSearch">Buscar producto</label><input id="catalogSearch" type="search" placeholder="Nombre o codigo"><span id="catalogResults" role="status"></span></div><div id="catalogProducts" class="catalog-products"></div></section><aside class="catalog-selection"><h3 id="catalogSelectionTitle" tabindex="-1">Seleccion del evento</h3><div id="catalogCart" class="catalog-cart"></div></aside></div><footer class="catalog-footer"><div><strong id="catalogTotals"></strong><p id="catalogShortage" class="catalog-low" hidden></p><p id="catalogMessage" role="status"></p></div><div class="catalog-footer-actions"><button type="button" class="btn catalog-mobile-selection" id="catalogViewSelection">Ver seleccion</button><button type="button" class="btn primary" id="catalogConfirm">Confirmar seleccion</button></div></footer></dialog>`);
+  $('salonCatalogOpen').addEventListener('click',openCatalog);
+  $('catalogClose').addEventListener('click',closeCatalog);
+  $('catalogConfirm').addEventListener('click',()=>confirmCatalog());
+  $('catalogViewSelection').addEventListener('click',()=>{$('catalogSelectionTitle').scrollIntoView({block:'start'});$('catalogSelectionTitle').focus({preventScroll:true});});
+  $('catalogSearch').addEventListener('input',renderCatalogProducts);
+  $('catalogCategory').addEventListener('change',()=>{catalogCategory=$('catalogCategory').value;renderCatalogProducts();});
+  $('catalogDialog').addEventListener('cancel',event=>{event.preventDefault();closeCatalog();});
+  $('catalogDialog').addEventListener('error',event=>{if(event.target.matches('.catalog-photo img')){event.target.hidden=true;event.target.nextElementSibling.hidden=false;}},true);
+  $('catalogDialog').addEventListener('click',event=>{
+    if(api.saving())return;
+    const button=event.target.closest('button');if(!button)return;
+    try{
+      if(button.dataset.catalogStep){const input=button.closest('.catalog-stepper').querySelector('input');input.value=Math.min(100000000,Math.max(1,(Number(input.value)||1)+Number(button.dataset.catalogStep)));input.setAttribute('aria-invalid','false');}
+      if(button.dataset.catalogAdd){
+        const pid=button.dataset.catalogAdd,input=button.closest('[data-catalog-product]').querySelector('[data-catalog-qty]'),qty=catalogQuantity(input);if(qty===null)return;
+        const existing=catalogDraft.find(i=>i.productId===pid);
+        if(existing)existing.qty=api.quantity(existing.qty+qty);else catalogDraft.push({productId:pid,qty,returned:0,damaged:0,missing:0});
+        input.value='1';catalogMessage('Agregado: '+catalogItem(pid).name);renderCatalogCart();
+      }
+      if(button.dataset.catalogRemove){const i=catalogDraft.find(i=>i.productId===button.dataset.catalogRemove);if(i&&catalogLocked(i))throw new Error('Un alquiler recibido conserva su registro.');catalogDraft=catalogDraft.filter(i=>i.productId!==button.dataset.catalogRemove);catalogMessage('');renderCatalogCart();}
+      if(button.dataset.catalogRent)confirmCatalog(button.dataset.catalogRent);
+    }catch(error){catalogMessage(error.message,true);}
+  });
+  $('catalogCart').addEventListener('input',event=>{
+    const input=event.target;if(!input.dataset.cartQty)return;
+    const i=catalogDraft.find(i=>i.productId===input.dataset.cartQty),qty=catalogQuantity(input,catalogMin(i));
+    if(qty!==null){i.qty=qty;catalogMessage('');}updateCatalogTotals();
+  });
+  $('catalogProducts').addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target.matches('[data-catalog-qty]')){event.preventDefault();event.target.closest('[data-catalog-product]').querySelector('[data-catalog-add]').click();}});
+  window.addEventListener('elianne:change',()=>{if($('catalogDialog').open){catalogProducts=api.get().items;renderCatalog();}});
+  window.addEventListener('elianne:restored',()=>{$('catalogDialog').close();catalogDraft=[];catalogBaseline='';});
+  window.addEventListener('elianne:saving',syncCatalogSaving);
+  window.addEventListener('beforeunload',event=>{if($('catalogDialog').open&&catalogDirty()){event.preventDefault();event.returnValue='';}});
+}
+
+  let categoryOrigin=null,categoryBaseline='';
+const categoryFormDirty=()=>categoryOrigin&&$('newCategoryName').value!==categoryBaseline;
+function openCategoryDialog(){
+  if(api.saving())return;
+  categoryOrigin='inventory';
+  $('newCategoryName').value='';
+  categoryBaseline=$('newCategoryName').value;$('categoryMessage').textContent='';$('categoryDialog').showModal();$('newCategoryName').focus();
+}
+function closeCategoryDialog(){
+  if(api.saving()||(categoryFormDirty()&&!confirm('Hay una categoria sin guardar. Descartar ese nombre?')))return;
+  categoryOrigin=null;$('categoryDialog').close();$('inventoryCategoryAdd').focus();
+}
+function initCategories(){
+  types['categoria-creada']='Categoria creada';
+  document.querySelector('.salon-module').insertAdjacentHTML('beforeend','<dialog id="categoryDialog" class="salon-dialog category-dialog" aria-labelledby="categoryTitle"><div class="history-heading"><h2 id="categoryTitle">Nueva categoria</h2><button id="categoryDialogClose" class="btn small" type="button">Cerrar</button></div><form id="newCategoryForm" class="form"><div class="field"><label for="newCategoryName">Nombre de la categoria</label><input id="newCategoryName" maxlength="100" autocomplete="off" required></div><p id="categoryMessage" class="invalid" role="status"></p><button type="submit" class="btn primary">Guardar categoria</button></form></dialog>');
+  $('inventoryCategoryAdd').addEventListener('click',openCategoryDialog);
+  $('categoryDialogClose').addEventListener('click',closeCategoryDialog);
+  $('categoryDialog').addEventListener('cancel',event=>{event.preventDefault();closeCategoryDialog();});
+  $('newCategoryForm').addEventListener('submit',async event=>{
+    event.preventDefault();if(api.saving())return;
+    try{
+      const name=$('newCategoryName').value;await api.addCategory(name);
+      const saved=api.categories().find(c=>api.categoryKey(c)===api.categoryKey(name));
+      categoryOrigin=null;$('categoryDialog').close();
+      $('categoryInput').value=saved;$('categoryInput').focus();api.notify('Categoria creada: '+saved+'.');
+    }catch(error){$('categoryMessage').textContent=error.message;}
+  });
+  window.addEventListener('elianne:restored',()=>{categoryOrigin=null;$('categoryDialog').close();});
+  window.addEventListener('beforeunload',event=>{if(categoryFormDirty()){event.preventDefault();event.returnValue='';}});
+}
+
+  let finContext=null,finBaseline='';
+const finLabels={cobro:'Cobro','reembolso-cliente':'Reembolso al cliente','pago-gasto':'Pago a proveedor','reembolso-proveedor':'Reembolso del proveedor'};
+const finMoney=value=>value===null?'Sin definir':'Bs '+money(value/100);
+const finButton=(label,mode,eid='',extra='')=>`<button type="button" class="btn small" data-fin-mode="${mode}" data-fin-event="${esc(eid)}" ${extra}>${label}</button>`;
+const finMetric=(label,value,cls='')=>`<div class="finance-metric ${cls}"><span>${label}</span><strong>${value}</strong></div>`;
+const finDialogDirty=()=>finContext&&formFingerprint($('financeForm'))!==finBaseline;
+function finCashReference(c,state){
+  const event=state.events.find(e=>e.id===c.eventId),expense=state.finance.expenses.find(x=>x.id===c.expenseId);
+  const concept=expense?.description||(c.productId?'Alquiler: '+(state.items.find(p=>p.id===c.productId)?.name||c.productId):'');
+  return [event?.client,concept].filter(Boolean).join(' / ')||'Gasto general';
+}
+function labelFinanceTables(root){
+  root.querySelectorAll('.finance-table').forEach(table=>{const labels=[...table.querySelectorAll('thead th')].map(th=>th.textContent);table.querySelectorAll('tbody tr').forEach(row=>[...row.children].forEach((cell,n)=>cell.dataset.label=labels[n]||''));});
+}
+function finCashTable(rows){
+  if(!rows.length)return '<p class="salon-muted">Sin cobros ni pagos registrados.</p>';
+  const state=api.get();
+  return `<div class="table-wrap"><table class="salon-table finance-table"><thead><tr><th>Fecha / referencia</th><th>Movimiento</th><th>Importe</th><th>Medio / responsable</th><th>Estado</th></tr></thead><tbody>${[...rows].sort((a,b)=>b.date.localeCompare(a.date)||b.at-a.at).map(c=>{
+    const reference=finCashReference(c,state);
+    return `<tr class="${c.voidedAt?'finance-void':''}"><td>${reportDate(c.date)}<br><span class="salon-muted">${esc(reference||'Gasto general')}</span>${c.note?`<p>${esc(c.note)}</p>`:''}</td><td>${finLabels[c.kind]}</td><td class="finance-number">${finMoney(c.amount)}</td><td>${esc(c.method)}<br>${esc(c.by)}</td><td>${c.voidedAt?`Anulado<br>${esc(c.voidReason)}<br>${esc(c.voidBy)}`:finButton('Anular','void',c.eventId,`data-fin-kind="cash" data-fin-record="${c.id}"`)}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function finExpensesTable(rows){
+  if(!rows.length)return '<p class="salon-muted">Sin gastos registrados.</p>';
+  return `<div class="table-wrap"><table class="salon-table finance-table"><thead><tr><th>Concepto</th><th>Costo</th><th>Pagado neto</th><th>Por pagar</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.description)}<br><span class="salon-muted">${esc(x.category)} · ${reportDate(x.date)}${x.rentalStatus?' · '+rentalLabels[x.rentalStatus]:''}</span></td><td class="finance-number">${finMoney(x.amount)}</td><td class="finance-number">${finMoney(x.paid)}${x.credit?`<p class="finance-credit">Anticipo excedente: ${finMoney(x.credit)}</p>`:''}</td><td class="finance-number">${finMoney(x.pending)}</td><td><div class="finance-row-actions">${finButton('Registrar pago','cash',x.eventId,`data-fin-expense="${esc(x.id)}" data-fin-product="${esc(x.productId)}"`)}${x.source==='manual'?finButton('Editar gasto','expense-edit',x.eventId,`data-fin-record="${x.id}"`)+finButton('Anular gasto','void',x.eventId,`data-fin-kind="expense" data-fin-record="${x.id}"`):button('Gestionar alquiler','rentals',x.eventId)}</div></td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderEventFinance(e){
+  if(!$('detailFinance'))return;
+  const f=api.financeEvent(e.id);
+  $('detailFinance').innerHTML=`<div class="finance-section-heading"><h3>Finanzas del evento</h3><div class="actions">${finButton('Precio acordado','contract',e.id)}${finButton('Agregar extra','extra',e.id)}${finButton('Registrar cobro','cash',e.id)}${finButton('Nuevo gasto','expense',e.id)}<button type="button" class="btn small" data-fin-pdf-event="${e.id}">PDF finanzas</button></div></div><div class="finance-metrics">${finMetric('Total acordado',finMoney(f.total))}${finMetric('Cobrado neto',finMoney(f.received))}${finMetric('Pendiente del cliente',finMoney(f.pending))}${finMetric('Resultado previsto',f.result===null?'Por completar':finMoney(f.result),f.result<0?'finance-negative':'')}</div><dl class="finance-breakdown"><div><dt>Precio base</dt><dd>${finMoney(f.contract.base)}</dd></div><div><dt>Extras vigentes</dt><dd>${finMoney(f.extras)}</dd></div><div><dt>Gastos registrados</dt><dd>${finMoney(f.cost)}${f.unknown?` + ${f.unknown} sin costo definido`:''}</dd></div><div><dt>Pagado a proveedores</dt><dd>${finMoney(f.paid)}</dd></div>${f.credit?`<div><dt>Saldo a favor del cliente</dt><dd>${finMoney(f.credit)}</dd></div>`:''}</dl><h4>Extras del acuerdo</h4>${f.contract.extras.length?`<ul class="finance-extras">${f.contract.extras.map(x=>`<li class="${x.voidedAt?'finance-void':''}"><span>${esc(x.description)} · ${finMoney(x.amount)}${x.voidedAt?` · Anulado: ${esc(x.voidReason)}`:''}</span>${x.voidedAt?'':finButton('Anular','void',e.id,`data-fin-kind="extra" data-fin-record="${x.id}"`)}</li>`).join('')}</ul>`:'<p class="salon-muted">Sin extras registrados.</p>'}<h4>Gastos y alquileres externos</h4>${finExpensesTable(f.expenses)}<h4>Cobros, pagos y reembolsos</h4>${finCashTable(f.cash)}`;
+  const expenseHeading=[...$('detailFinance').querySelectorAll('h4')].find(h=>h.textContent==='Gastos y alquileres externos');
+  const expenseTable=expenseHeading.nextElementSibling,expenseButton=$('detailFinance').querySelector('[data-fin-mode="expense"]');
+  const expensePanel=document.createElement('section');expensePanel.id='detailExpenses';expensePanel.className='event-expense-panel';expensePanel.setAttribute('aria-labelledby','detailExpensesTitle');
+  expensePanel.innerHTML=`<div class="finance-section-heading"><h4 id="detailExpensesTitle" tabindex="-1">Gastos del evento</h4><div class="actions"></div></div><p class="salon-muted">Registra comida, personal, decoración, transporte y otros costos de este evento. Los alquileres externos se incluyen automáticamente.</p><div class="finance-metrics">${finMetric('Costo registrado',finMoney(f.cost)+(f.unknown?' + por definir':''))}${finMetric('Pagado a proveedores',finMoney(f.paid))}${finMetric('Por pagar',finMoney(f.unknown?null:f.expenses.reduce((sum,x)=>sum+x.pending,0)))}</div><p class="event-expense-help">Al agregar un gasto puedes indicar si está pendiente, pagado completo o con abono. Para pagos posteriores, usa Registrar pago en su fila.</p>`;
+  expenseButton.textContent='Registrar gasto';expenseButton.classList.add('primary');expensePanel.querySelector('.actions').append(expenseButton);
+  expenseHeading.replaceWith(expensePanel);expensePanel.append(expenseTable);
+  labelFinanceTables($('detailFinance'));
+}
+function refreshFinanceHalls(){
+  const select=$('financeHall'),value=select.value;
+  select.innerHTML='<option value="">Todos los salones</option>'+api.get().halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('');select.value=value;
+}
+function renderFinanceMonth(){
+  if(!$('financeMonth'))return;
+  refreshFinanceHalls();
+  const month=$('financeMonth').value||today().slice(0,7),f=api.financeMonth(month,$('financeHall').value);
+  $('financeCashMetrics').innerHTML=finMetric('Cobros netos del mes',finMoney(f.income-f.refunds))+finMetric('Pagos netos del mes',finMoney(f.out-f.supplierRefunds))+finMetric('Flujo neto del mes',finMoney(f.net),f.net<0?'finance-negative':'')+finMetric('Devoluciones a clientes',finMoney(f.refunds));
+  $('financeForecastMetrics').innerHTML=finMetric('Resultado previsto menos gastos generales',f.result===null?'Por completar':finMoney(f.result),f.result<0?'finance-negative':'')+finMetric('Saldo de reservas del mes',finMoney(f.pending))+finMetric('Gastos generales del mes',finMoney(f.generalCost))+finMetric('Reservas con datos incompletos',String(f.incomplete));
+  $('financeShared').textContent=$('financeHall').value?`Importes de eventos compartidos sin prorratear. Gastos generales compartidos no incluidos: ${finMoney(f.unassignedGeneral)}.`:'';
+  $('financeEvents').innerHTML=f.rows.length?`<div class="table-wrap"><table class="salon-table finance-table"><thead><tr><th>Evento / salon</th><th>Total acordado</th><th>Cobrado neto</th><th>Pendiente</th><th>Resultado previsto</th></tr></thead><tbody>${f.rows.sort((a,b)=>a.event.eventDate.localeCompare(b.event.eventDate)).map(r=>`<tr><td><button type="button" class="finance-event-link" data-fin-open="${r.eventId}">${esc(r.event.client)}</button><br><span class="salon-muted">${reportDate(r.event.eventDate)} · ${esc(hallNames(r.event))}<br>${statuses[r.event.status]}</span></td><td class="finance-number">${finMoney(r.total)}</td><td class="finance-number">${finMoney(r.received)}</td><td class="finance-number">${finMoney(r.pending)}</td><td class="finance-number">${r.result===null?'Por completar':finMoney(r.result)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">No hay eventos para este mes y salon.</p>';
+  $('financeGeneral').innerHTML=finExpensesTable(f.general);
+  $('financeCashList').innerHTML=finCashTable(f.cash);
+  labelFinanceTables($('salon-finance'));
+}
+const finAmountField=(value='',required=true,label='Importe (Bs)')=>`<div class="field"><label for="finAmount">${label}</label><input id="finAmount" type="number" min="${required?'0.01':'0'}" max="1000000000000" step="0.01" ${required?'required':''} value="${value}" placeholder="${required?'':'Sin definir'}"></div>`;
+function openFinanceDialog(context){
+  if(api.saving())return;
+  finContext={...context,id:api.uid(),paymentId:api.uid()};const mode=context.mode,eid=context.eventId||'',state=api.get(),e=state.events.find(e=>e.id===eid);
+  let fields='',title='';
+  if(mode==='contract'){title='Precio acordado';const base=api.financeEvent(eid).contract.base;fields=finAmountField(base===null?'':base/100,false,'Precio base (Bs)');}
+  if(mode==='extra'){title='Agregar extra';fields='<div class="field"><label for="finDescription">Concepto</label><input id="finDescription" maxlength="300" required></div>'+finAmountField();}
+  if(['expense','expense-edit'].includes(mode)){
+    title=eid?'Nuevo gasto del evento':'Nuevo gasto general';
+    const month=$('financeMonth').value||today().slice(0,7),expenseDate=eid?today():(month===today().slice(0,7)?today():month+'-01');
+    fields='<div class="field"><label for="finDescription">Concepto / proveedor</label><input id="finDescription" maxlength="300" required></div><div class="field"><label for="finCategory">Categoria</label><select id="finCategory">'+(eid?['Comida','Personal','Decoracion','Transporte','Servicios','Otros']:['Luz','Agua','Sueldos','Mantenimiento','Alquiler del local','Otros']).map(x=>`<option>${x}</option>`).join('')+'</select></div>'+finAmountField()+'<div class="field"><label for="finDate">Fecha del gasto previsto</label><input id="finDate" type="date" required value="'+expenseDate+'"></div>';
+    if(!eid)fields+='<div class="field"><label for="finHall">Salon del gasto</label><select id="finHall"><option value="">Compartido / general</option>'+state.halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'</select></div>';
+    if(mode==='expense')fields+=`<section class="expense-payment-choice" aria-label="Pago de este gasto"><div class="field"><label for="finExpensePayment">¿Ya pagaste este gasto?</label><select id="finExpensePayment"><option value="pending">Pendiente: todavía no pagué</option><option value="full">Pagado completo</option><option value="partial">Abono: pagué una parte</option></select></div><div class="field" id="finExpensePartial" hidden><label for="finExpensePaid">Cuánto pagaste (Bs)</label><input id="finExpensePaid" type="number" min="0.01" max="1000000000000" step="0.01" placeholder="0.00"></div><div id="finExpensePaymentFields" hidden><div class="row"><div class="field"><label for="finExpensePaidDate">Fecha del pago</label><input id="finExpensePaidDate" type="date" value="${today()}" max="${today()}"></div><div class="field"><label for="finExpenseMethod">Cómo pagaste</label><select id="finExpenseMethod">${['Efectivo','Transferencia','QR','Tarjeta','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div></div></div><p class="expense-payment-balance">Queda por pagar: <strong><output id="finExpensePending">Sin definir</output></strong></p></section>`;
+  }
+  if(mode==='cash'){
+    const supplier=Boolean(context.expenseId||context.productId);title=supplier?'Pago / reembolso de proveedor':'Cobro / reembolso del cliente';
+    fields='<div class="field"><label for="finCashKind">Movimiento</label><select id="finCashKind">'+(supplier?['pago-gasto','reembolso-proveedor']:['cobro','reembolso-cliente']).map(k=>`<option value="${k}">${finLabels[k]}</option>`).join('')+'</select></div>'+finAmountField()+'<div class="row"><div class="field"><label for="finDate">Fecha del pago</label><input id="finDate" type="date" max="'+today()+'" required value="'+today()+'"></div><div class="field"><label for="finMethod">Medio de pago</label><select id="finMethod">'+['Efectivo','Transferencia','QR','Tarjeta','Otro'].map(x=>`<option>${x}</option>`).join('')+'</select></div></div><div class="field"><label for="finNote">Referencia / observaciones</label><input id="finNote" maxlength="300"></div>';
+  }
+  if(mode==='void'){title='Anular registro financiero';fields='<div class="field"><label for="finReason">Motivo de anulacion</label><textarea id="finReason" maxlength="1000" required></textarea></div>';}
+  $('financeDialogTitle').textContent=title;$('financeDialogContext').textContent=e?.client||'Gastos generales';
+  $('financeFields').innerHTML=fields;if($('finHall'))$('finHall').value=$('financeHall').value;
+  if(mode==='expense-edit'){
+    const r=state.finance.expenses.find(x=>x.id===context.record);if(!r){finContext=null;return;}
+    $('financeDialogTitle').textContent='Editar gasto';$('finAmount').value=r.amount/100;$('finDescription').value=r.description;$('finDate').value=r.date;
+    if(![...$('finCategory').options].some(o=>o.value===r.category))$('finCategory').add(new Option(r.category,r.category));$('finCategory').value=r.category;if($('finHall'))$('finHall').value=r.hallId;
+  }
+  if(mode==='expense'){
+    $('financeFields').querySelector('label[for="finDate"]').textContent='Fecha del gasto';
+    $('financeFields').querySelector('label[for="finAmount"]').textContent='Costo total del gasto (Bs)';
+  }
+  $('financeForm').querySelector('button[type="submit"]').textContent=mode==='expense'?'Guardar gasto':'Guardar registro';
+  $('finBy').value='';$('financeMessage').textContent='';syncExpensePayment();finBaseline=formFingerprint($('financeForm'));$('financeDialog').showModal();$('financeFields').querySelector('input,select,textarea')?.focus();
+}
+function syncExpensePayment(){
+  if(!$('finExpensePayment'))return;
+  const mode=$('finExpensePayment').value,partial=mode==='partial',paid=mode==='full'||partial;
+  $('finExpensePartial').hidden=!partial;$('finExpensePaymentFields').hidden=!paid;
+  $('finExpensePaid').setCustomValidity('');
+  if(!api.saving()){
+    $('finExpensePaid').disabled=!partial;$('finExpensePaid').required=partial;
+    $('finExpensePaidDate').disabled=!paid;$('finExpensePaidDate').required=paid;$('finExpenseMethod').disabled=!paid;
+  }
+  try{
+    const total=api.moneyCents($('finAmount').value,true),part=partial?api.moneyCents($('finExpensePaid').value,true):0;
+    if(partial&&total!==null&&part>total){$('finExpensePaid').setCustomValidity('El abono no puede superar el costo del gasto.');throw new Error();}
+    $('finExpensePending').textContent=total===null?'Sin definir':finMoney(mode==='full'?0:total-(part||0));
+  }catch{$('finExpensePending').textContent='Revisa los importes';}
+}
+function closeFinanceDialog(){if(api.saving()||(finDialogDirty()&&!confirm('Hay datos financieros sin guardar. Descartar estos cambios?')))return;finContext=null;$('financeDialog').close();}
+async function saveFinanceDialog(event){
+  event.preventDefault();if(!finContext||api.saving())return;
+  const c=finContext,by=$('finBy').value,amount=$('finAmount')?.value,eventId=c.eventId||'';
+  try{
+    if(c.mode==='contract')await api.setContract(eventId,amount,by);
+    else if(c.mode==='void')await api.voidFinance(c.kind,c.record,$('finReason').value,by,eventId);
+    else if(c.mode==='extra')await api.addFinanceRecord('extra',{id:c.id,eventId,amount,description:$('finDescription').value},by);
+    else if(c.mode==='expense'){
+      const paymentMode=$('finExpensePayment').value,payment=paymentMode==='pending'?null:{id:c.paymentId,amount:paymentMode==='full'?amount:$('finExpensePaid').value,date:$('finExpensePaidDate').value,method:$('finExpenseMethod').value};
+      await api.addExpenseWithPayment({id:c.id,eventId,hallId:$('finHall')?.value||'',amount,description:$('finDescription').value,category:$('finCategory').value,date:$('finDate').value},payment,by);
+    }
+    else if(c.mode==='expense-edit')await api.updateFinanceExpense(c.record,{hallId:$('finHall')?.value||'',amount,description:$('finDescription').value,category:$('finCategory').value,date:$('finDate').value},by);
+    else if(c.mode==='cash')await api.addFinanceRecord('cash',{id:c.id,eventId,expenseId:c.expenseId||'',productId:c.productId||'',amount,kind:$('finCashKind').value,method:$('finMethod').value,date:$('finDate').value,note:$('finNote').value},by);
+    finContext=null;$('financeDialog').close();api.notify('Registro financiero guardado.');
+  }catch(error){$('financeMessage').textContent=error.message;}
+}
+function financePdf(eid){
+  if(eid){
+    const f=api.financeEvent(eid),e=api.get().events.find(e=>e.id===eid);
+    const blocks=[{type:'heading',text:e.client+' / '+reportDate(e.eventDate)},{type:'text',text:hallNames(e)+' / '+statuses[e.status]},{type:'table',columns:['Concepto','Importe'],widths:[330,193],rows:[['Precio base',finMoney(f.contract.base)],['Extras vigentes',finMoney(f.extras)],['Total acordado',finMoney(f.total)],['Cobrado neto',finMoney(f.received)],['Saldo pendiente',finMoney(f.pending)],['Saldo a favor del cliente',finMoney(f.credit)],['Gastos conocidos',finMoney(f.cost)+(f.unknown?' + costos sin definir':'')],['Resultado previsto',f.result===null?'Por completar':finMoney(f.result)]]}];
+    if(f.contract.extras.length)blocks.push({type:'heading',text:'Extras del acuerdo'},{type:'table',columns:['Concepto','Importe','Estado'],widths:[303,110,110],rows:f.contract.extras.map(x=>[x.description,finMoney(x.amount),x.voidedAt?'Anulado: '+x.voidReason:'Vigente'])});
+    blocks.push({type:'heading',text:'Gastos y alquileres externos'},financeExpensesBlock(f.expenses),{type:'heading',text:'Cobros y pagos (incluye anulaciones)'},financeCashBlock(f.cash));
+    reportPdf('Finanzas del evento',blocks,'finanzas-evento');
+  }else{
+    const f=api.financeMonth($('financeMonth').value||today().slice(0,7),$('financeHall').value);
+    const blocks=[{type:'heading',text:f.month+' / '+$('financeHall').selectedOptions[0].textContent},{type:'text',text:'Caja por fecha de cobro/pago. Importes completos de eventos compartidos, sin prorrateo.'},{type:'table',columns:['Caja del mes','Importe'],widths:[330,193],rows:[['Cobros netos',finMoney(f.income-f.refunds)],['Pagos netos',finMoney(f.out-f.supplierRefunds)],['Flujo neto (no es ganancia)',finMoney(f.net)]]},{type:'text',text:'Prevision por fecha de evento: reservas confirmadas, sin cotizaciones ni cancelados. No es utilidad contable definitiva.'},{type:'table',columns:['Prevision','Importe'],widths:[330,193],rows:[['Resultado menos gastos generales',f.result===null?'Por completar':finMoney(f.result)],['Gastos generales',finMoney(f.generalCost)],['Reservas incompletas',f.incomplete],['Gastos compartidos fuera del filtro',finMoney(f.unassignedGeneral)]]},{type:'heading',text:'Eventos del mes'},{type:'table',columns:['Evento / fecha / salon','Acordado','Gastos','Resultado','Estado'],widths:[203,80,80,80,80],rows:f.rows.map(r=>[r.event.client+'\n'+reportDate(r.event.eventDate)+' / '+hallNames(r.event),finMoney(r.total),finMoney(r.cost)+(r.unknown?' + por definir':''),r.result===null?'Por completar':finMoney(r.result),statuses[r.event.status]])},{type:'heading',text:'Gastos generales'},financeExpensesBlock(f.general),{type:'heading',text:'Movimientos de caja vigentes'},financeCashBlock(f.cash)];
+    reportPdf('Finanzas mensuales',blocks,'finanzas-mes');
+  }
+}
+function financeExpensesBlock(rows){return {type:'table',columns:['Concepto','Costo','Pagado neto','Por pagar'],widths:[253,90,90,90],rows:rows.map(x=>[x.description,finMoney(x.amount),finMoney(x.paid),finMoney(x.pending)])};}
+function financeCashBlock(rows){const state=api.get();return {type:'table',columns:['Fecha','Referencia / responsable','Importe','Movimiento / estado'],widths:[70,180,100,173],rows:rows.map(c=>[reportDate(c.date),finCashReference(c,state)+'\n'+c.by,finMoney(c.amount),finLabels[c.kind]+' / '+c.method+'\n'+(c.voidedAt?'ANULADO: '+c.voidReason:'Vigente')+(c.note?' / '+c.note:'')])};}
+function financeCsv(){
+  const f=api.financeMonth($('financeMonth').value||today().slice(0,7),$('financeHall').value),data=api.get();
+  const safe=value=>typeof value==='string'&&/^[\s]*[=+\-@]/.test(value)?"'"+value:value;
+  csv('finanzas-'+f.month,[['Fecha','Evento / gasto','Movimiento','Importe Bs','Medio','Responsable','Referencia','Registro'],...f.cash.map(c=>[c.date,finCashReference(c,data),finLabels[c.kind],c.amount/100,c.method,c.by,c.note,c.id].map(safe))]);
+}
+function initFinance(){
+  $('detailEdit').insertAdjacentHTML('beforebegin','<button type="button" class="btn event-expenses-open" id="detailExpensesOpen">Gastos del evento</button>');
+  Object.assign(types,{'finanzas-acuerdo':'Precio acordado','finanzas-extra':'Extra del acuerdo','finanzas-expense':'Gasto financiero','finanzas-expense-edit':'Gasto modificado','finanzas-cash':'Movimiento de caja','finanzas-anulacion':'Anulacion financiera'});
+  $('detailReadOnly').querySelector('.detail-overview-grid').insertAdjacentHTML('afterend','<section id="detailFinance" class="detail-section"></section>');
+  document.querySelector('.salon-module').insertAdjacentHTML('beforeend',`<div id="salon-finance" class="salon-view"><div class="finance-section-heading"><h2>Finanzas</h2><div class="actions"><button type="button" class="btn" id="financeCsv">Exportar CSV</button><button type="button" class="btn" id="financePdf">PDF mensual</button>${finButton('Nuevo gasto general','expense')}</div></div><div class="finance-filters"><div class="field"><label for="financeMonth">Mes</label><input id="financeMonth" type="month" min="1900-01" max="2199-12" required value="${today().slice(0,7)}"></div><div class="field"><label for="financeHall">Salon</label><select id="financeHall"></select></div></div><section class="finance-band"><h3>Caja · fecha de cobro / pago</h3><div id="financeCashMetrics" class="finance-metrics"></div></section><section class="finance-band"><h3>Prevision · fecha del evento</h3><p class="salon-muted">Reservas confirmadas, sin cotizaciones ni cancelados. Resultado segun importes registrados, no utilidad contable definitiva.</p><div id="financeForecastMetrics" class="finance-metrics"></div><p id="financeShared" class="salon-muted"></p></section><section class="finance-band"><h3>Eventos del mes</h3><div id="financeEvents"></div></section><section class="finance-band"><h3>Gastos generales</h3><div id="financeGeneral"></div></section><section class="finance-band"><h3>Movimientos de caja del mes</h3><div id="financeCashList"></div></section></div><dialog id="financeDialog" class="salon-dialog finance-dialog" aria-labelledby="financeDialogTitle"><div class="history-heading"><div><h2 id="financeDialogTitle"></h2><p id="financeDialogContext" class="salon-muted"></p></div><button type="button" class="btn small" id="financeDialogClose">Cerrar</button></div><form id="financeForm" class="form"><div id="financeFields"></div><div class="field"><label for="finBy">Registrado por</label><input id="finBy" maxlength="120" required></div><p id="financeMessage" class="invalid" role="status"></p><button type="submit" class="btn primary">Guardar registro</button></form></dialog>`);
+  $('financeForm').addEventListener('submit',saveFinanceDialog);$('financeDialogClose').addEventListener('click',closeFinanceDialog);
+  $('financeFields').addEventListener('input',syncExpensePayment);$('financeFields').addEventListener('change',syncExpensePayment);
+  $('financeDialog').addEventListener('cancel',event=>{event.preventDefault();closeFinanceDialog();});
+  ['financeMonth','financeHall'].forEach(id=>$(id).addEventListener('input',renderFinanceMonth));
+  $('financeMonth').addEventListener('change',()=>{if(!$('financeMonth').value)$('financeMonth').value=today().slice(0,7);renderFinanceMonth();});
+  $('financeCsv').addEventListener('click',financeCsv);$('financePdf').addEventListener('click',()=>financePdf());
+  document.querySelector('.salon-module').addEventListener('click',event=>{
+    const b=event.target.closest('button');if(!b||api.saving())return;
+    if(b.id==='detailExpensesOpen'&&!detailEditing){$('detailExpenses').scrollIntoView({block:'start'});$('detailExpensesTitle').focus({preventScroll:true});}
+    if(b.dataset.finMode)openFinanceDialog({mode:b.dataset.finMode,eventId:b.dataset.finEvent,expenseId:b.dataset.finExpense,productId:b.dataset.finProduct,kind:b.dataset.finKind,record:b.dataset.finRecord});
+    if(b.dataset.finPdfEvent)financePdf(b.dataset.finPdfEvent);
+    if(b.dataset.finOpen&&openEventDetail(b.dataset.finOpen,'finance'))$('detailFinance').scrollIntoView({block:'start'});
+  });
+  window.addEventListener('elianne:restored',()=>{finContext=null;$('financeDialog').close();});
+  window.addEventListener('beforeunload',event=>{if(finDialogDirty()){event.preventDefault();event.returnValue='';}});
+}
+
   async function run(action, success = 'Guardado correctamente.') {
     try { await action(); api.notify(success); return true; }
     catch (error) { api.notify(error.message, true); return false; }
@@ -1962,7 +2496,7 @@ function initEventDetail(){
     document.querySelector('.app').insertAdjacentHTML('beforeend', `
       <section class="salon-module" aria-label="Control de eventos">
         <nav class="salon-tabs" aria-label="Secciones del salon">
-          ${[['calendar','Agenda'],['events','Eventos'],['inventory','Inventario'],['returns','Salida y devolucion'],['settings','Stock y costos'],['movements','Movimientos'],['alerts','Alertas'],['reports','Reportes']].map(([key,label],i)=>`<button type="button" class="btn salon-tab ${i===0?'active':''}" data-tab="${key}" aria-pressed="${i===0}">${label}</button>`).join('')}
+          ${[['calendar','Agenda'],['events','Eventos'],['finance','Finanzas'],['inventory','Inventario'],['returns','Salida y devolucion'],['settings','Stock y costos'],['movements','Movimientos'],['alerts','Alertas'],['reports','Reportes']].map(([key,label],i)=>`<button type="button" class="btn salon-tab ${i===0?'active':''}" data-tab="${key}" aria-pressed="${i===0}">${label}</button>`).join('')}
         </nav>
         <div id="salon-calendar" class="salon-view active">
           <div class="agenda-heading"><div><h2>Agenda de salones</h2><div id="agendaMetrics" class="agenda-metrics"></div></div><div class="actions"><button class="btn" type="button" id="hallConfigOpen">Salones</button><button class="btn primary" type="button" id="calendarNew">Nuevo evento</button></div></div>
@@ -1982,19 +2516,31 @@ function initEventDetail(){
           <div class="salon-grid">
             <form class="form" id="salonEventForm">
               <h2 id="salonEventTitle">Nuevo evento</h2>
+              <p class="event-form-intro">Completa estas 4 secciones en orden y guarda el evento al final.</p>
+              <section class="event-form-step event-step-data" aria-labelledby="eventStepData">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">1</span><div><h3 id="eventStepData">Datos del evento</h3><p>Cliente, invitados y responsable.</p></div></header>
               <div class="field"><label for="salonClient">Cliente / evento</label><input id="salonClient" required></div>
-              <div class="row"><div class="field"><label for="salonGuests">Cantidad de invitados</label><input id="salonGuests" type="number" min="0" max="100000000" step="1" placeholder="Sin definir"></div><div class="field"><label for="salonEventDate">Fecha del evento</label><input id="salonEventDate" type="date" required></div></div>
-              ${venueFields('event')}
-              <div class="row">
-                <div class="field"><label for="salonDate">Fecha de salida</label><input id="salonDate" type="date" required></div>
-                <div class="field"><label for="salonEnd">Devolucion prevista</label><input id="salonEnd" type="date" required></div>
-              </div>
+              <div class="field"><label for="salonGuests">Cantidad de invitados</label><input id="salonGuests" type="number" min="0" max="100000000" step="1" placeholder="Sin definir"></div>
               <div class="row">
                 <div class="field"><label for="salonType">Tipo</label><select id="salonType">${['Boda','Cumpleaños','Corporativo','Bautizo','Graduacion','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div>
                 <div class="field"><label for="salonStatus">Estado</label><select id="salonStatus"><option value="cotizacion">Cotizacion</option><option value="reservado">Reservado</option></select></div>
               </div>
               <div class="field"><label for="salonResp">Responsable</label><input id="salonResp" required></div>
               <div class="field"><label for="salonPlace">Lugar</label><input id="salonPlace"></div>
+              <div class="field"><label for="salonNotes">Notas</label><textarea id="salonNotes"></textarea></div>
+              </section>
+              <section class="event-form-step event-step-venue" aria-labelledby="eventStepVenue">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">2</span><div><h3 id="eventStepVenue">Fechas y salón</h3><p>Reserva el espacio y define su horario.</p></div></header>
+                <div class="field"><label for="salonEventDate">Fecha del evento</label><input id="salonEventDate" type="date" required></div>
+                ${venueFields('event')}
+              </section>
+              <section class="event-form-step event-step-material" aria-labelledby="eventStepMaterial">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">3</span><div><h3 id="eventStepMaterial">Productos y material</h3><p>Elige los productos y cuándo salen y regresan.</p></div></header>
+              <div class="row">
+                <div class="field"><label for="salonDate">Fecha de salida</label><input id="salonDate" type="date" required></div>
+                <div class="field"><label for="salonEnd">Devolucion prevista</label><input id="salonEnd" type="date" required></div>
+              </div>
+              <button type="button" class="btn primary catalog-open" id="salonCatalogOpen">Seleccionar productos con fotos</button>
               <div class="salon-assign">
                 <div class="field"><label for="salonProduct">Producto</label><select id="salonProduct"></select></div>
                 <div class="field"><label for="salonQty">Cantidad</label><input id="salonQty" type="number" min="1" step="1"></div>
@@ -2002,13 +2548,26 @@ function initEventDetail(){
               </div>
               <div id="salonDraft"></div>
               <section id="salonRentalsDraft" class="rental-draft-section" hidden></section>
-              <div class="field"><label for="salonNotes">Notas</label><textarea id="salonNotes"></textarea></div>
+              </section>
+              <section class="event-form-step event-step-payment" aria-labelledby="eventStepPayment">
+                <header class="event-step-heading"><span class="event-step-number" aria-hidden="true">4</span><div><h3 id="eventStepPayment">Precio, abonos y saldo</h3><p>Registra lo acordado y el dinero recibido.</p></div></header>
+              <div class="field"><label for="salonBasePrice">Precio base acordado (Bs)</label><input id="salonBasePrice" type="number" min="0" max="1000000000000" step="0.01" placeholder="Sin definir"></div>
+              <div class="field"><label id="salonPaymentLabel" for="salonPaymentAmount">Anticipo recibido (Bs)</label><input id="salonPaymentAmount" type="number" min="0" max="1000000000000" step="0.01" placeholder="0.00"></div>
+              <div id="salonPaymentFields" class="event-payment-fields" hidden><div class="row"><div class="field"><label for="salonPaymentDate">Fecha del abono</label><input id="salonPaymentDate" type="date" value="${today()}" max="${today()}"></div><div class="field"><label for="salonPaymentMethod">Medio de pago</label><select id="salonPaymentMethod">${['Efectivo','Transferencia','QR','Tarjeta','Otro'].map(x=>`<option>${x}</option>`).join('')}</select></div></div><div class="field"><label for="salonPaymentNote">Referencia del abono</label><input id="salonPaymentNote" maxlength="300"></div></div>
+              <dl class="event-payment-summary"><div><dt>Total acordado</dt><dd><output id="salonPaymentTotal"></output></dd></div><div id="salonPreviousPaymentRow" hidden><dt>Pagado anteriormente</dt><dd><output id="salonPreviousPayment"></output></dd></div><div><dt>Total pagado</dt><dd><output id="salonPaymentPaid"></output></dd></div><div><dt>Saldo pendiente</dt><dd><output id="salonPaymentBalance"></output></dd></div><div id="salonPaymentCreditRow" hidden><dt>Saldo a favor del cliente</dt><dd><output id="salonPaymentCredit"></output></dd></div></dl>
+              </section>
               <div id="eventChangeMeta" class="event-change-meta" hidden><div class="field"><label for="salonRecordedBy">Cambio registrado por</label><input id="salonRecordedBy" maxlength="120"></div><div class="field"><label for="salonChangeNote">Motivo / solicitud del cliente</label><textarea id="salonChangeNote" maxlength="10000"></textarea></div></div>
               <div class="actions"><button class="btn primary" type="submit">Guardar evento</button><button class="btn" type="button" id="salonClearEvent">Limpiar</button></div>
             </form>
             <div class="salon-event-column">
               <h2>Eventos registrados</h2>
-              <div class="salon-tools"><input id="salonEventSearch" type="search" aria-label="Buscar eventos" placeholder="Buscar evento, producto o responsable"><select id="salonEventFilter" aria-label="Estado del evento"><option value="">Todos los estados</option>${Object.entries(statuses).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+              <div class="event-list-filters">
+                <div class="field"><label for="salonEventMonth">Mes del evento</label><input id="salonEventMonth" type="month" min="1900-01" max="2199-12" value="${today().slice(0,7)}" required></div>
+                <div class="field"><label for="salonEventHall">Salon</label><select id="salonEventHall"></select></div>
+                <div class="field"><label for="salonEventFilter">Estado</label><select id="salonEventFilter"><option value="">Todos los estados</option>${Object.entries(statuses).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+                <div class="field event-list-search"><label for="salonEventSearch">Buscar eventos</label><input id="salonEventSearch" type="search" placeholder="Evento, producto o responsable"></div>
+              </div>
+              <p id="salonEventSelection" class="salon-muted event-list-summary" role="status"></p>
               <div class="salon-list" id="salonEventList"></div>
             </div>
           </div>
@@ -2043,7 +2602,10 @@ function initEventDetail(){
     $('salon-inventory').append(document.querySelector('.stats'), document.querySelector('.layout'));
     $('inventoryExports').append($('excelBtn'), $('pdfBtn'));
     initRentals();
+    initCatalog();
+    initCategories();
     initEventDetail();
+    initFinance();
     document.querySelector('.salon-module').addEventListener('click', click);
     document.querySelector('.salon-module').addEventListener('input', input);
     $('calendarDays').addEventListener('keydown', event => {
@@ -2054,6 +2616,7 @@ function initEventDetail(){
       event.preventDefault();d.setDate(d.getDate()+delta);selectDay(dateKey(d),true);
     });
     $('salonEventForm').addEventListener('submit', saveEvent);
+    $('salonEventMonth').addEventListener('change',()=>{if(!$('salonEventMonth').value)$('salonEventMonth').value=today().slice(0,7);renderEvents();});
     $('salonExtraForm').addEventListener('submit', e => { e.preventDefault(); run(() => api.saveExtra($('extraProduct').value, { status: $('extraStatus').value, minQty: $('extraMin').value, cost: $('extraCost').value })); });
     ['reportFrom','reportTo','reportHall','reportStatus'].forEach(id=>$(id).addEventListener('change',renderReports));
     $('extraProduct').addEventListener('change', loadExtras);
@@ -2134,9 +2697,12 @@ function initEventDetail(){
     csv('historial-evento',[['Evento','Fecha del evento','Fecha del registro','Tipo','Detalle','Responsable registrado'],...api.eventHistory(e.id).map(m=>[m.eventName||e.client,e.eventDate,new Date(m.at).toLocaleString('es-BO'),m.type,m.detail,m.responsible])]);
   }
   function refreshHallNames() {
-    const halls=api.get().halls,current=$('calendarHall').value;
-    $('calendarHall').innerHTML='<option value="">Todos los salones</option>'+halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'<option value="unassigned">Sin salon asignado</option>';
-    $('calendarHall').value=current;
+    const halls=api.get().halls;
+    for(const id of ['calendarHall','salonEventHall']){
+      const current=$(id).value;
+      $(id).innerHTML='<option value="">Todos los salones</option>'+halls.map(h=>`<option value="${h.id}">${esc(h.name)}</option>`).join('')+'<option value="unassigned">Sin salon asignado</option>';
+      $(id).value=current;
+    }
     document.querySelectorAll('[data-hall-name]').forEach(el=>el.textContent=halls.find(h=>h.id===el.dataset.hallName)?.name||'');
     $('calendarHallLegend').innerHTML=halls.map(h=>`<span><i data-hall-legend="${h.id}" style="background:${hallColors[h.id].accent}" aria-hidden="true">${h.id.slice(-1)}</i>${esc(h.name)}</span>`).join('')+'<span><i class="unassigned-dot" aria-hidden="true">?</i>Sin asignar</span>';
   }
@@ -2159,6 +2725,8 @@ function initEventDetail(){
   function refresh() {
     refreshHallNames();refreshSelects(); loadExtras(); renderDraft(); renderEvents(); renderReturns(); renderAlerts(); renderStock(); renderMovements(); renderReports(); renderCalendar();if($('eventHistoryDialog').open)renderHistory();
     renderEventDetail();
+    renderFinanceMonth();
+    updateEventPaymentPreview();
   }
   const localDate = key => { const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d || 1,12); };
   const dateKey = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
@@ -2236,6 +2804,7 @@ function initEventDetail(){
     resetEvent();
     ['salonEventDate','salonDate','salonEnd'].forEach(key=>$(key).value=selectedDay);
     setVenue('event',{eventDate:selectedDay,hallIds:api.get().halls.some(h=>h.id===$('calendarHall').value)?[$('calendarHall').value]:[]});
+    $('salonEventMonth').value=selectedDay.slice(0,7);renderEvents();
     refreshSelects(); renderDraft(); showTab('events'); $('salonClient').focus();
   }
   function renderDraft() {
@@ -2243,8 +2812,9 @@ function initEventDetail(){
     $('salonDraft').innerHTML = draft.length ? `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Necesita</th><th>Propios / disponibles</th><th></th></tr></thead><tbody>${draft.map((i,n)=>`<tr data-draft-row="${n}"><td>${esc(product(i.productId)?.name || 'Producto eliminado')}<p data-draft-coverage class="salon-muted"></p></td><td>${i.qty}</td><td><output data-draft-own>${api.ownQty(i)}</output> / ${api.available(i.productId,a,b,editing)}</td><td><div class="draft-actions"><button type="button" class="btn small" data-draft-rent="${n}">Alquiler externo</button><button type="button" class="btn small danger" data-remove="${n}">Quitar</button></div></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Sin productos asignados.</div>';
     renderRentalDraft();updateDraftCoverage();
   }
-  function summary(e) {
-    return `<div><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><div class="meta"><span class="pill">Evento: ${esc(e.eventDate||e.date)}</span><span class="pill">Invitados: ${guestsLabel(e)}</span><span class="pill status-${e.status}">${statuses[e.status]}</span><span class="pill">Resp.: ${esc(e.responsible || 'Sin asignar')}</span></div><p class="salon-muted">${esc(venueLabel(e))}</p><p class="salon-muted">Material: ${esc(e.date)} al ${esc(e.returnDate)}</p>${e.place?`<p class="salon-muted">${esc(e.place)}</p>`:''}${e.notes?`<p class="salon-muted">${esc(e.notes)}</p>`:''}${rentalSummary(e)}${hasRental(e)?button('Alquiler externo','rentals',e.id):''}</div>`;
+  function summary(e,financial=false) {
+    const f=financial?api.financeEvent(e.id):null;
+    return `<div><h3>${esc(e.client)}</h3><p class="venue-badge">${hallDots(e)}${esc(hallNames(e))}</p><div class="meta"><span class="pill">Evento: ${esc(e.eventDate||e.date)}</span><span class="pill">Invitados: ${guestsLabel(e)}</span><span class="pill status-${e.status}">${statuses[e.status]}</span><span class="pill">Resp.: ${esc(e.responsible || 'Sin asignar')}</span></div>${f?`<dl class="event-payment-summary event-card-payment"><div><dt>Total acordado</dt><dd>${finMoney(f.total)}</dd></div><div><dt>Pagado neto</dt><dd>${finMoney(f.received)}</dd></div><div><dt>Saldo pendiente</dt><dd>${finMoney(f.pending)}</dd></div>${f.credit?`<div><dt>Saldo a favor</dt><dd>${finMoney(f.credit)}</dd></div>`:''}</dl>`:''}<p class="salon-muted">${esc(venueLabel(e))}</p><p class="salon-muted">Material: ${esc(e.date)} al ${esc(e.returnDate)}</p>${e.place?`<p class="salon-muted">${esc(e.place)}</p>`:''}${e.notes?`<p class="salon-muted">${esc(e.notes)}</p>`:''}${rentalSummary(e)}${hasRental(e)?button('Alquiler externo','rentals',e.id):''}</div>`;
   }
   function button(label, action, id, cls = '') { return `<button type="button" class="btn small ${cls}" data-action="${action}" data-event="${esc(id)}">${label}</button>`; }
   function readTable(e) {
@@ -2252,9 +2822,18 @@ function initEventDetail(){
     return `<div class="table-wrap"><table class="salon-table"><thead><tr><th>Producto</th><th>Propios</th><th>Regreso propio</th><th>Dañado propio</th><th>Falta propio</th></tr></thead><tbody>${e.items.map(i=>`<tr><td>${esc(product(i.productId)?.name || 'Producto eliminado')}${i.external?`<br><span class="salon-muted">Externos: ${i.qty-api.ownQty(i)}</span>`:''}</td><td>${api.ownQty(i)}</td><td>${i.returned}</td><td>${i.damaged}</td><td>${i.missing}</td></tr>`).join('')}</tbody></table></div>`;
   }
   function renderEvents() {
-    const search = $('salonEventSearch').value.toLocaleLowerCase(), filter = $('salonEventFilter').value;
-    const events = api.get().events.filter(e => (!filter || e.status === filter) && [e.client,e.responsible,e.place,e.notes,e.eventDate,e.date,e.returnDate,hallNames(e),...e.items.map(i=>product(i.productId)?.name || '')].join(' ').toLocaleLowerCase().includes(search)).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date));
-    $('salonEventList').innerHTML = events.length ? events.map(e=>`<article class="salon-card" data-event-entry="${esc(e.id)}"><div class="salon-mini">${summary(e)}<div class="salon-actions">${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${e.status==='cotizacion'?button('Reservar','reserve',e.id,'primary'):''}${['cotizacion','reservado'].includes(e.status)?button('Cancelar','cancel',e.id,'danger'):''}${e.status!=='cancelado'?button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id):''}${button('Historial','history',e.id)}${button('PDF entrega','pdf',e.id)}</div></div>${readTable(e)}</article>`).join('') : '<div class="empty">No hay eventos en esta vista.</div>';
+    const search = $('salonEventSearch').value.trim().toLocaleLowerCase(), filter = $('salonEventFilter').value;
+    const month=$('salonEventMonth').value||today().slice(0,7),hall=$('salonEventHall').value;
+    const events = api.get().events.filter(e => (e.eventDate||e.date).slice(0,7)===month && matchesHall(e,hall) && (!filter || e.status === filter) && [e.client,e.responsible,e.place,e.notes,e.eventDate,e.date,e.returnDate,hallNames(e),...e.items.map(i=>product(i.productId)?.name || '')].join(' ').toLocaleLowerCase().includes(search)).sort((a,b)=>(a.eventDate||a.date).localeCompare(b.eventDate||b.date)||a.client.localeCompare(b.client,'es'));
+    const monthLabel=localDate(month+'-01').toLocaleDateString('es-BO',{month:'long',year:'numeric'});
+    $('salonEventSelection').textContent=`${events.length} ${events.length===1?'evento':'eventos'} · ${monthLabel} · ${$('salonEventHall').selectedOptions[0]?.textContent||'Todos los salones'}`;
+    $('salonEventList').innerHTML = events.length ? events.map(e=>`<article class="salon-card" data-event-entry="${esc(e.id)}"><div class="salon-mini">${summary(e,true)}<div class="salon-actions">${['cotizacion','reservado'].includes(e.status)?button('Editar','edit',e.id):''}${e.status==='cotizacion'?button('Reservar','reserve',e.id,'primary'):''}${['cotizacion','reservado'].includes(e.status)?button('Cancelar','cancel',e.id,'danger'):''}${e.status!=='cancelado'?button(e.hallIds.length?'Salones / horario':'Asignar salon','assign',e.id):''}${button('Historial','history',e.id)}${button('PDF entrega','pdf',e.id)}</div></div>${readTable(e)}</article>`).join('') : '<div class="empty">No hay eventos en esta vista.</div>';
+    document.querySelectorAll('#salonEventList [data-event-entry]').forEach(card=>{
+      const id=card.dataset.eventEntry,f=api.financeEvent(id);
+      card.querySelector('.salon-actions').insertAdjacentHTML('afterbegin',finButton('Agregar gasto','expense',id)+button('Ver evento','view',id));
+      card.querySelector('[data-fin-mode="expense"]').classList.add('event-expenses-open');
+      const costs=document.createElement('p');costs.className='event-card-expenses';costs.textContent='Gastos registrados: '+finMoney(f.cost)+(f.unknown?' + costos por definir':'');card.querySelector('.event-card-payment').after(costs);
+    });
   }
   function returnValues(e) { return returns.get(e.id) || e.items.map(i=>({ productId: i.productId, returned: String(i.returned), damaged: String(i.damaged) })); }
   function renderReturns() {
@@ -2328,19 +2907,46 @@ function initEventDetail(){
     const from=$('reportFrom').value,to=$('reportTo').value,hall=$('reportHall').value,status=$('reportStatus').value;
     return api.get().events.filter(e=>(!from||e.eventDate>=from)&&(!to||e.eventDate<=to)&&(!status||e.status===status)&&(!hall||(hall==='unassigned'?!e.hallIds.length:e.hallIds.includes(hall)))).sort((a,b)=>a.eventDate.localeCompare(b.eventDate)||a.client.localeCompare(b.client,'es'));
   }
+  function resetEventPayment(){
+    eventPaymentId=api.uid();$('salonPaymentAmount').value='';$('salonPaymentDate').value=today();$('salonPaymentMethod').value='Efectivo';$('salonPaymentNote').value='';
+  }
+  function updateEventPaymentPreview(){
+    if(!$('salonPaymentAmount'))return;
+    let f=null;if(editing){try{f=api.financeEvent(editing);}catch{}}
+    $('salonPaymentLabel').textContent=editing?'Nuevo abono recibido (Bs)':'Anticipo recibido (Bs)';$('salonPreviousPaymentRow').hidden=!editing;
+    $('salonPreviousPayment').textContent=finMoney(f?.received||0);
+    let positive=false;
+    try{
+      if(!$('salonBasePrice').checkValidity()||!$('salonPaymentAmount').checkValidity())throw new Error('Importe invalido');
+      const base=api.moneyCents($('salonBasePrice').value,true),amount=api.moneyCents($('salonPaymentAmount').value,true)||0;
+      positive=amount>0;
+      const total=base===null?null:base+(f?.extras||0),alreadySaved=f?.cash.some(c=>c.id===eventPaymentId&&!c.voidedAt),paid=(f?.received||0)+(alreadySaved?0:amount);
+      if(!Number.isSafeInteger(paid)||total!==null&&!Number.isSafeInteger(total))throw new Error('Importe fuera de limite');
+      const credit=total===null?0:Math.max(0,paid-total);
+      $('salonPaymentTotal').textContent=finMoney(total);$('salonPaymentPaid').textContent=finMoney(paid);$('salonPaymentBalance').textContent=finMoney(total===null?null:Math.max(0,total-paid));$('salonPaymentCredit').textContent=finMoney(credit);$('salonPaymentCreditRow').hidden=!credit;
+    }catch{
+      ['salonPaymentTotal','salonPaymentPaid','salonPaymentBalance'].forEach(id=>$(id).textContent='Revisar importe');$('salonPaymentCreditRow').hidden=true;
+    }
+    $('salonPaymentFields').hidden=!positive;$('salonPaymentDate').required=positive;$('salonPaymentDate').max=today();
+    if(!api.saving())['salonPaymentDate','salonPaymentMethod','salonPaymentNote'].forEach(id=>$(id).disabled=!positive);
+  }
   async function saveEvent(event) {
     event.preventDefault();
     const payload={id:editing||api.uid(),client:$('salonClient').value,guestCount:$('salonGuests').value,eventDate:$('salonEventDate').value,...readVenue('event'),date:$('salonDate').value,returnDate:$('salonEnd').value,type:$('salonType').value,status:$('salonStatus').value,responsible:$('salonResp').value,place:$('salonPlace').value,notes:$('salonNotes').value,recordedBy:$('salonRecordedBy').value,changeNote:$('salonChangeNote').value,items:draft,updatedAt:Date.now()};
-    if(await run(()=>api.saveEvent(payload))) {resetEvent();if(detailEditing)finishDetailEdit();}
+    if(!editing||$('salonBasePrice').value!==eventPriceBaseline){payload.basePrice=$('salonBasePrice').value;if(editing)payload.expectedBasePrice=eventPriceExpected;}
+    if($('salonPaymentAmount').value!==''&&Number($('salonPaymentAmount').value)!==0){payload.payment={id:eventPaymentId,amount:$('salonPaymentAmount').value,date:$('salonPaymentDate').value,method:$('salonPaymentMethod').value,note:$('salonPaymentNote').value};if(editing)payload.expectedBasePrice=eventPriceExpected;}
+    if(await run(()=>api.saveEvent(payload))) {if(!detailEditing){$('salonEventMonth').value=payload.eventDate.slice(0,7);renderEvents();}resetEvent();if(detailEditing)finishDetailEdit();}
   }
-  function resetEvent() { editing=null; draft=[]; $('salonEventForm').reset();syncVenueMode('event');$('eventChangeMeta').hidden=true;$('salonRecordedBy').required=false; $('salonEventTitle').textContent='Nuevo evento'; refreshSelects(); renderDraft(); }
+  function resetEvent() { editing=null; draft=[];eventPriceBaseline='';eventPriceExpected=null; $('salonEventForm').reset();resetEventPayment();syncVenueMode('event');$('eventChangeMeta').hidden=true;$('salonRecordedBy').required=false; $('salonEventTitle').textContent='Nuevo evento'; refreshSelects(); renderDraft();updateEventPaymentPreview(); }
   function editEvent(id,inline=false) {
     const e=api.get().events.find(e=>e.id===id);
     if(!e) return;
     editing=id; draft=JSON.parse(JSON.stringify(e.items));
+    eventPriceExpected=api.financeEvent(id).contract.base;$('salonBasePrice').value=eventPriceExpected===null?'':eventPriceExpected/100;eventPriceBaseline=$('salonBasePrice').value;
+    resetEventPayment();
     [['salonClient',e.client],['salonEventDate',e.eventDate||e.date],['salonDate',e.date],['salonEnd',e.returnDate],['salonType',e.type],['salonStatus',e.status],['salonResp',e.responsible],['salonPlace',e.place],['salonNotes',e.notes]].forEach(([key,value])=>$(key).value=value);
     $('salonGuests').value=e.guestCount??'';$('eventChangeMeta').hidden=false;$('salonRecordedBy').required=true;$('salonRecordedBy').value='';$('salonChangeNote').value='';
-    setVenue('event',e);$('salonEventTitle').textContent='Editar evento'; refreshSelects(); renderDraft(); if(!inline)showTab('events'); $('salonClient').focus();
+    setVenue('event',e);$('salonEventTitle').textContent='Editar evento'; refreshSelects(); renderDraft();updateEventPaymentPreview(); if(!inline)showTab('events'); $('salonClient').focus();
   }
   function eventPdf(id,kind) {
     const e=api.get().events.find(e=>e.id===id); if(!e) return;
@@ -2424,6 +3030,8 @@ function initEventDetail(){
     if(target.dataset.report) report(target.dataset.report);
     const action=target.dataset.action,id=target.dataset.event;
     if(!action)return;
+    if(action==='expenses'){if(openEventDetail(id,'events')){$('detailExpenses').scrollIntoView({block:'start'});$('detailExpensesTitle').focus({preventScroll:true});}return;}
+    if(action==='finance'){if(openEventDetail(id,'events'))$('detailFinance').scrollIntoView({block:'start'});return;}
     if(action==='edit'){if(target.closest('#salon-calendar')){if(openEventDetail(id,'calendar'))startDetailEdit();}else editEvent(id);}
     if(action==='assign')openAssignment(id);
     if(action==='history')openHistory(id);
@@ -2445,6 +3053,7 @@ function initEventDetail(){
   }
   function input(event) {
     const input=event.target;
+    if(['salonBasePrice','salonPaymentAmount'].includes(input.id))updateEventPaymentPreview();
     if(input.matches('[data-return]')){
       const e=api.get().events.find(e=>e.id===input.dataset.event); if(!e)return;
       const values=returnValues(e); values[Number(input.dataset.index)][input.dataset.return]=input.value; returns.set(e.id,values); validateReturnUI(e); return;
@@ -2459,7 +3068,7 @@ function initEventDetail(){
       if(!$('eventVenueEnd').value||$('eventVenueEnd').value<$('salonEventDate').value)$('eventVenueEnd').value=$('salonEventDate').value;
       refreshSelects();renderDraft();
     }
-    if(['salonEventSearch','salonEventFilter'].includes(input.id))renderEvents();
+    if(['salonEventSearch','salonEventFilter','salonEventMonth','salonEventHall'].includes(input.id))renderEvents();
     if(['stockStart','stockEnd'].includes(input.id))renderStock();
     if(input.id==='moveSearch')renderMovements();
   }

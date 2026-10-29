@@ -108,6 +108,21 @@
     if (!name) fail('El producto necesita un nombre.');
     return { id: id(p.id), name, qty: quantity(p.qty), unit: text(p.unit) || 'unidades', code: text(p.code), category: text(p.category) || 'Otros', location: text(p.location), notes: text(p.notes), photo: photo(p.photo), updatedAt: Number(p.updatedAt) || Date.now() };
   }
+  function categoryKey(value){return String(value??'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');}
+  function normalizeCategories(raw,items,required){
+    if(raw===undefined&&!required)raw=[];
+    if(!Array.isArray(raw))fail('Falta la lista de categorias del respaldo.');
+    const result=[],seen=new Set();
+    for(const value of [...raw,...items.map(p=>p.category)]){
+      const name=text(value,'Categoria').normalize('NFC').replace(/\s+/g,' ');if(!name)fail('Nombre de categoria invalido.');
+      const key=categoryKey(name);if(!seen.has(key)){seen.add(key);result.push(name);}
+    }
+    return result.sort((a,b)=>a.localeCompare(b,'es'));
+  }
+  function addCategory(value){
+    const name=text(value,'Categoria',100).normalize('NFC').replace(/\s+/g,' ');if(!name)fail('Escribe el nombre de la categoria.');
+    return commit(d=>{if(d.categories.some(c=>categoryKey(c)===categoryKey(name)))fail('Ya existe esa categoria.');d.categories.push(name);movement(d,'categoria-creada',null,0,'Categoria creada: '+name+'.');});
+  }
   function normalizeRental(raw,total) {
     if(raw==null)return null;
     if(!obj(raw)||!rentalStatuses.includes(raw.status))fail('Estado del alquiler invalido.');
@@ -142,8 +157,8 @@
     return { id: id(e.id), client, guestCount, eventDate, ...normalizeVenue(e,eventDate), date: start, returnDate: end, departureDate: e.departureDate ? date(e.departureDate) : '', type: text(e.type) || 'Otro', status: e.status, responsible: text(e.responsible), place: text(e.place), notes: text(e.notes), items, settledAt: Number(e.settledAt) || null, updatedAt: Number(e.updatedAt) || Date.now() };
   }
   function normalize(raw) {
-    if (!obj(raw) || ![3,4].includes(raw.schemaVersion) || !Array.isArray(raw.items) || !Array.isArray(raw.events) || !obj(raw.extras) || !Array.isArray(raw.movements)) fail('El archivo no es un respaldo completo compatible.');
-    const d = { schemaVersion: 4, revision: quantity(raw.revision ?? 0), halls:normalizeHalls(raw.halls), items: raw.items.map(normalizeProduct), events: raw.events.map(normalizeEvent), extras: {}, movements: [] };
+    if (!obj(raw) || ![3,4,5,6].includes(raw.schemaVersion) || !Array.isArray(raw.items) || !Array.isArray(raw.events) || !obj(raw.extras) || !Array.isArray(raw.movements)) fail('El archivo no es un respaldo completo compatible.');
+    const d = { schemaVersion: 6, revision: quantity(raw.revision ?? 0), halls:normalizeHalls(raw.halls), items: raw.items.map(normalizeProduct), events: raw.events.map(normalizeEvent), extras: {}, movements: [] };
     for (const collection of [d.items, d.events]) {
       if (new Set(collection.map(v => v.id)).size !== collection.length) fail('El respaldo tiene identificadores repetidos.');
     }
@@ -157,7 +172,143 @@
       return { id: id(m.id), at: m.at, productId: m.productId ? id(m.productId) : '', productName: text(m.productName), eventId: m.eventId ? id(m.eventId) : '', eventName: text(m.eventName), type: text(m.type), delta: m.delta, balance: quantity(m.balance ?? 0), detail: text(m.detail,'Detalle',25000), responsible: text(m.responsible) };
     });
     if (new Set(d.movements.map(m => m.id)).size !== d.movements.length) fail('Hay movimientos repetidos.');
+    d.categories=normalizeCategories(raw.categories,d.items,raw.schemaVersion===6);
+    d.finance=normalizeFinance(raw.finance,d,raw.schemaVersion>=5);
     return d;
+  }
+  const cashKinds=['cobro','reembolso-cliente','pago-gasto','reembolso-proveedor'];
+  const cashMethods=['Efectivo','Transferencia','QR','Tarjeta','Otro'];
+  const finSum=values=>values.reduce((sum,value)=>{const n=sum+value;if(!Number.isSafeInteger(n))fail('El total financiero supera el limite seguro.');return n;},0);
+  const cents=n=>{if(!Number.isSafeInteger(n)||n<0||n>100000000000000)fail('Importe financiero invalido.');return n;};
+  function toCents(value,nullable=false){
+    if(nullable&&(value===''||value==null))return null;
+    const s=String(value??'').trim();if(!/^\d+(\.\d{1,2})?$/.test(s))fail('Escribe un importe positivo con hasta dos decimales.');
+    const [whole,decimals='']=s.split('.');return cents(Number(whole)*100+Number(decimals.padEnd(2,'0')));
+  }
+  function finMeta(raw){
+    const by=text(raw.by),at=raw.at,voidedAt=raw.voidedAt==null?null:raw.voidedAt,voidReason=text(raw.voidReason),voidBy=text(raw.voidBy);
+    if(!by||!Number.isFinite(at)||at<=0||!Number.isFinite(new Date(at).getTime())||(voidedAt!==null&&(!Number.isFinite(voidedAt)||voidedAt<=0||!Number.isFinite(new Date(voidedAt).getTime())||!voidReason||!voidBy)))fail('Registro financiero o anulacion invalida.');
+    return {by,at,voidedAt,voidReason,voidBy};
+  }
+  const freshFinMeta=by=>{by=text(by);if(!by)fail('Escribe quien registra el movimiento.');return {by,at:Date.now(),voidedAt:null,voidReason:'',voidBy:''};};
+  const finExpenseKey=c=>c.expenseId?'gasto:'+c.expenseId:'alquiler:'+c.eventId+':'+c.productId;
+  const netCash=rows=>finSum(rows.filter(c=>!c.voidedAt).map(c=>['reembolso-cliente','reembolso-proveedor'].includes(c.kind)?-c.amount:c.amount));
+  function normalizeFinance(raw,d,required){
+    if(raw===undefined&&!required)return {contracts:[],expenses:[],cash:[]};
+    if(!obj(raw)||!['contracts','expenses','cash'].every(key=>Array.isArray(raw[key])))fail('Faltan los registros financieros del respaldo.');
+    const eventExists=eid=>{if(!d.events.some(e=>e.id===eid))fail('Registro financiero sin evento.');return eid;};
+    const entry=r=>{if(!obj(r))fail('Registro financiero invalido.');const amount=cents(r.amount);if(!amount)fail('El importe debe ser mayor a cero.');const description=text(r.description);if(!description)fail('Escribe el concepto.');return {id:id(r.id),description,amount,...finMeta(r)};};
+    const contracts=raw.contracts.map(c=>{
+      if(!obj(c)||!Array.isArray(c.extras))fail('Acuerdo financiero invalido.');
+      return {eventId:eventExists(id(c.eventId)),base:c.base===null?null:cents(c.base),extras:c.extras.map(entry)};
+    });
+    const expenses=raw.expenses.map(r=>{
+      const e=entry(r),eventId=r.eventId?eventExists(id(r.eventId)):'',hallId=r.hallId?id(r.hallId):'';
+      if(hallId&&!d.halls.some(h=>h.id===hallId)||eventId&&hallId)fail('Salon del gasto invalido.');
+      return {...e,eventId,hallId,date:date(r.date),category:text(r.category)||'Otros'};
+    });
+    const cash=raw.cash.map(c=>{
+      if(!obj(c)||!cashKinds.includes(c.kind)||!cashMethods.includes(c.method))fail('Movimiento de caja invalido.');
+      const amount=cents(c.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+      const eventId=c.eventId?eventExists(id(c.eventId)):'',expenseId=c.expenseId?id(c.expenseId):'',productId=c.productId?id(c.productId):'';
+      if(['cobro','reembolso-cliente'].includes(c.kind)){if(!eventId||expenseId||productId)fail('Cobro sin evento valido.');}
+      else if(expenseId){const expense=expenses.find(e=>e.id===expenseId);if(!expense||expense.eventId!==eventId||productId)fail('Pago sin gasto valido.');}
+      else if(!eventId||!productId||!d.events.find(e=>e.id===eventId)?.items.some(i=>i.productId===productId&&i.external))fail('Pago sin alquiler externo valido.');
+      return {id:id(c.id),kind:c.kind,amount,eventId,expenseId,productId,date:date(c.date),method:c.method,note:text(c.note),...finMeta(c)};
+    });
+    for(const list of [contracts.map(c=>c.eventId),expenses.map(c=>c.id),cash.map(c=>c.id),...contracts.map(c=>c.extras.map(x=>x.id))])if(new Set(list).size!==list.length)fail('Hay registros financieros repetidos.');
+    const groups=new Map();for(const c of cash){const key=['cobro','reembolso-cliente'].includes(c.kind)?'cliente:'+c.eventId:finExpenseKey(c);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(c);}
+    for(const rows of groups.values()){
+      if(netCash(rows)<0)fail('El reembolso o la anulacion supera los pagos vigentes.');
+      const dates=[...new Set(rows.filter(c=>!c.voidedAt).map(c=>c.date))].sort();let running=0;
+      for(const day of dates){running=finSum([running,netCash(rows.filter(c=>c.date===day))]);if(running<0)fail('La fecha del reembolso es anterior a los pagos que lo cubren.');}
+    }
+    for(const c of contracts)finSum([c.base||0,...c.extras.filter(x=>!x.voidedAt).map(x=>x.amount)]);
+    finSum([...cash.map(c=>c.amount),...expenses.map(x=>x.amount),...contracts.flatMap(c=>[c.base||0,...c.extras.map(x=>x.amount)]),...d.events.flatMap(e=>e.items.map(i=>i.external?.cost==null?0:Math.round(i.external.cost*100)))]);
+    return {contracts,expenses,cash};
+  }
+  function finExpenseRows(d,eventId){
+    const rows=d.finance.expenses.filter(x=>!x.voidedAt&&(eventId===undefined||x.eventId===eventId)).map(x=>({...x,source:'manual',productId:''}));
+    if(eventId!=='')d.events.filter(e=>eventId===undefined||e.id===eventId).forEach(e=>e.items.filter(i=>i.external).forEach(i=>{
+      const r=i.external,paid=netCash(d.finance.cash.filter(c=>c.eventId===e.id&&c.productId===i.productId&&!c.expenseId));
+      if(r.status==='cancelado'&&!paid)return;
+      rows.push({id:'',eventId:e.id,productId:i.productId,hallId:'',source:'rental',description:'Alquiler: '+(d.items.find(p=>p.id===i.productId)?.name||i.productId)+(r.supplier?' / '+r.supplier:''),category:'Alquiler externo',date:e.eventDate,amount:r.status==='cancelado'?paid:r.cost==null?null:Math.round(r.cost*100),rentalStatus:r.status});
+    }));
+    return rows.map(x=>{const paid=netCash(d.finance.cash.filter(c=>['pago-gasto','reembolso-proveedor'].includes(c.kind)&&(x.source==='manual'?c.expenseId===x.id:!c.expenseId&&c.eventId===x.eventId&&c.productId===x.productId)));return {...x,paid,pending:x.amount==null?null:Math.max(0,x.amount-paid),credit:x.amount==null?0:Math.max(0,paid-x.amount)};});
+  }
+  function finEvent(d,eid){
+    const event=d.events.find(e=>e.id===eid);if(!event)fail('Evento no encontrado.');
+    const contract=d.finance.contracts.find(c=>c.eventId===eid)||{eventId:eid,base:null,extras:[]},extras=finSum(contract.extras.filter(x=>!x.voidedAt).map(x=>x.amount));
+    const total=contract.base===null?null:finSum([contract.base,extras]),cash=d.finance.cash.filter(c=>c.eventId===eid),received=netCash(cash.filter(c=>['cobro','reembolso-cliente'].includes(c.kind))),expenses=finExpenseRows(d,eid),unknown=expenses.filter(x=>x.amount===null).length,cost=finSum(expenses.map(x=>x.amount||0));
+    return {eventId:eid,contract,extras,total,received,pending:total===null?null:Math.max(0,total-received),credit:total===null?0:Math.max(0,received-total),expenses,cost,unknown,result:total===null||unknown?null:total-cost,cash,paid:netCash(cash.filter(c=>['pago-gasto','reembolso-proveedor'].includes(c.kind)))};
+  }
+  function finMonth(d,month,hall=''){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))fail('Selecciona un mes valido.');
+    if(hall&&!d.halls.some(h=>h.id===hall))fail('Salon invalido.');
+    const matches=e=>!hall||e.hallIds.includes(hall),events=d.events.filter(e=>e.eventDate.slice(0,7)===month&&matches(e)),rows=events.map(e=>({...finEvent(d,e.id),event:e}));
+    const cash=d.finance.cash.filter(c=>!c.voidedAt&&c.date.slice(0,7)===month&&(c.eventId?matches(d.events.find(e=>e.id===c.eventId)):!hall||d.finance.expenses.find(e=>e.id===c.expenseId)?.hallId===hall));
+    const income=finSum(cash.filter(c=>c.kind==='cobro').map(c=>c.amount)),refunds=finSum(cash.filter(c=>c.kind==='reembolso-cliente').map(c=>c.amount)),out=finSum(cash.filter(c=>c.kind==='pago-gasto').map(c=>c.amount)),supplierRefunds=finSum(cash.filter(c=>c.kind==='reembolso-proveedor').map(c=>c.amount));
+    const general=finExpenseRows(d,'').filter(x=>x.date.slice(0,7)===month&&(!hall||x.hallId===hall)),generalCost=finSum(general.map(x=>x.amount)),confirmed=rows.filter(r=>!['cotizacion','cancelado'].includes(r.event.status)),incomplete=confirmed.filter(r=>r.result===null).length;
+    return {month,hall,rows,cash,income,refunds,out,supplierRefunds,net:finSum([income,-refunds,-out,supplierRefunds]),general,generalCost,incomplete,result:incomplete?null:finSum([...confirmed.map(r=>r.result),-generalCost]),pending:finSum(confirmed.map(r=>r.pending||0)),unassignedGeneral:hall?finSum(finExpenseRows(d,'').filter(x=>x.date.slice(0,7)===month&&!x.hallId).map(x=>x.amount)):0};
+  }
+  function setContract(eid,base,by){
+    const value=toCents(base,true),meta=freshFinMeta(by);
+    return commit(d=>setContractValue(d,eid,value,meta.by));
+  }
+  function setContractValue(d,eid,value,actor){
+    const e=d.events.find(e=>e.id===eid);if(!e)fail('Evento no encontrado.');
+    let c=d.finance.contracts.find(c=>c.eventId===eid);
+    if(!c){if(value===null)return;c={eventId:eid,base:null,extras:[]};d.finance.contracts.push(c);}
+    if(c.base===value)return;
+    const old=c.base;c.base=value;
+    movement(d,'finanzas-acuerdo',null,0,`Precio base: ${old===null?'sin definir':(old/100).toFixed(2)} a ${value===null?'sin definir':(value/100).toFixed(2)} Bs.`,e,actor);
+  }
+  function addFinanceRecord(kind,payload,by){
+    const meta=freshFinMeta(by),amount=toCents(payload.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+    return commit(d=>appendFinanceRecord(d,kind,{...payload,amount},meta));
+  }
+  function addExpenseWithPayment(payload,payment,by){
+    const meta=freshFinMeta(by),amount=toCents(payload.amount);
+    if(!amount)fail('El costo del gasto debe ser mayor a cero.');
+    const paid=payment?toCents(payment.amount):0;
+    if(payment&&(!paid||paid>amount))fail('El abono debe ser mayor a cero y no superar el costo del gasto.');
+    return commit(d=>{
+      appendFinanceRecord(d,'expense',{...payload,amount},meta);
+      if(payment)appendFinanceRecord(d,'cash',{id:payment.id,kind:'pago-gasto',amount:paid,eventId:payload.eventId||'',expenseId:payload.id,productId:'',date:payment.date,method:payment.method,note:payment.note||''},meta);
+    });
+  }
+  function appendFinanceRecord(d,kind,payload,meta){
+      const amount=payload.amount;
+      const record={...payload,id:id(payload.id),amount,...meta},e=payload.eventId?d.events.find(e=>e.id===payload.eventId):null;
+      if(kind==='extra'){
+        if(!e)fail('Evento no encontrado.');let c=d.finance.contracts.find(c=>c.eventId===e.id);if(!c){c={eventId:e.id,base:null,extras:[]};d.finance.contracts.push(c);}if(c.extras.some(x=>x.id===record.id))fail('Ese extra ya fue registrado.');c.extras.push(record);
+      }else if(kind==='expense'){
+        if(d.finance.expenses.some(x=>x.id===record.id))fail('Ese gasto ya fue registrado.');d.finance.expenses.push(record);
+      }else if(kind==='cash'){
+        if(d.finance.cash.some(x=>x.id===record.id))fail('Ese pago ya fue registrado.');if(record.date>today())fail('Un pago recibido o realizado no puede tener fecha futura.');
+        if(record.expenseId&&d.finance.expenses.find(x=>x.id===record.expenseId)?.voidedAt)fail('El gasto esta anulado.');d.finance.cash.push(record);
+      }else fail('Operacion financiera invalida.');
+      const reference=record.expenseId?d.finance.expenses.find(x=>x.id===record.expenseId)?.description:record.productId?'Alquiler: '+(d.items.find(x=>x.id===record.productId)?.name||record.productId):'';
+      movement(d,'finanzas-'+kind,null,0,`${kind==='extra'?'Extra':kind==='expense'?'Gasto':record.kind}: Bs ${(amount/100).toFixed(2)}. ${kind==='cash'?record.date+' / '+record.method+' / '+reference+'. ':''}${text(record.description||record.note)}`,e,meta.by);
+  }
+  function voidFinance(kind,rid,reason,by,eid=''){
+    reason=text(reason);const meta=freshFinMeta(by);if(!reason)fail('Escribe el motivo de la anulacion.');
+    return commit(d=>{
+      const list=kind==='extra'?d.finance.contracts.find(c=>c.eventId===eid)?.extras:kind==='expense'?d.finance.expenses:kind==='cash'?d.finance.cash:null,r=list?.find(x=>x.id===rid);
+      if(!r||r.voidedAt)fail('Registro no encontrado o ya anulado.');
+      if(kind==='expense'&&netCash(d.finance.cash.filter(c=>c.expenseId===rid))!==0)fail('Reembolsa o anula los pagos del gasto antes de anularlo.');
+      Object.assign(r,{voidedAt:Date.now(),voidReason:reason,voidBy:meta.by});
+      movement(d,'finanzas-anulacion',null,0,`Anulacion ${kind}: Bs ${(r.amount/100).toFixed(2)}. Motivo: ${reason}`,d.events.find(e=>e.id===(eid||r.eventId)),meta.by);
+    });
+  }
+  function updateFinanceExpense(rid,patch,by){
+    const meta=freshFinMeta(by),amount=toCents(patch.amount);if(!amount)fail('El importe debe ser mayor a cero.');
+    return commit(d=>{
+      const r=d.finance.expenses.find(x=>x.id===rid);if(!r||r.voidedAt)fail('Gasto no encontrado o anulado.');
+      const before=r.amount;
+      Object.assign(r,{amount,description:text(patch.description),category:text(patch.category),date:date(patch.date),hallId:r.eventId?'':text(patch.hallId)});
+      movement(d,'finanzas-expense-edit',null,0,`Gasto ${r.description}: Bs ${(before/100).toFixed(2)} a ${(amount/100).toFixed(2)}. Fecha ${r.date}. Categoria ${r.category}. Salon ${r.hallId||'general / evento'}.`,d.events.find(e=>e.id===r.eventId),meta.by);
+    });
   }
   let data, expected, blocked = '',saving=false,initialized=!window.ElianneStorage,readable=false,persistedToken=null;
   function movement(d, type, p, delta, detail, e, responsible = '') {
@@ -216,7 +367,7 @@
     data=readPrevious();
   } catch (error) {
     blocked = 'No se pudieron leer los datos guardados. No se sobrescribiran. ' + error.message;
-    data = { schemaVersion: 4, revision: 0, halls:clone(DEFAULT_HALLS), items: [], events: [], extras: {}, movements: [] };
+    data = { schemaVersion: 6, revision: 0, halls:clone(DEFAULT_HALLS), items: [], events: [], extras: {}, movements: [], categories:[], finance:{contracts:[],expenses:[],cash:[]} };
   }
   function notify(message, error = false) {
     let el = document.getElementById('systemNotice');
@@ -304,6 +455,7 @@
   function upsertProduct(payload) {
     const p = normalizeProduct(payload);
     return commit(d => {
+      p.category=d.categories.find(c=>categoryKey(c)===categoryKey(p.category))||p.category.normalize('NFC').replace(/\s+/g,' ');
       const old = d.items.find(x => x.id === p.id);
       if (p.code && d.items.some(x => x.id !== p.id && x.code.toLocaleLowerCase() === p.code.toLocaleLowerCase())) fail('Ese codigo ya pertenece a otro producto.');
       if (old && p.qty !== old.qty) fail('Usa Movimientos para cambiar la cantidad de un producto existente.');
@@ -334,11 +486,20 @@
   }
   function saveEvent(payload) {
     const e = normalizeEvent(payload);
+    const hasPrice=Object.hasOwn(payload,'basePrice'),basePrice=hasPrice?toCents(payload.basePrice,true):null;
+    let payment=null;
+    if(payload.payment!=null){
+      if(!obj(payload.payment))fail('Abono del evento invalido.');
+      const amount=toCents(payload.payment.amount,true)||0;
+      if(amount)payment={id:id(payload.payment.id),eventId:e.id,expenseId:'',productId:'',kind:'cobro',amount,date:date(payload.payment.date),method:text(payload.payment.method),note:text(payload.payment.note)};
+    }
     if (!e.responsible) fail('Escribe el responsable del evento.');
     if (e.items.length&&(e.eventDate < e.date || e.venueEndDate > e.returnDate)) fail('Las fechas del evento deben estar entre la salida y la devolucion del material.');
     if(!e.hallIds.length)fail('Selecciona al menos un salon para el evento.');
     return commit(d => {
       const old = d.events.find(x => x.id === e.id);
+      const currentPrice=d.finance.contracts.find(c=>c.eventId===e.id)?.base??null;
+      if(old&&(hasPrice||payment)&&Object.hasOwn(payload,'expectedBasePrice')&&currentPrice!==payload.expectedBasePrice&&(!hasPrice||currentPrice!==basePrice))fail('El precio cambio desde que abriste el formulario. Reabre el evento antes de cambiar su precio o registrar un abono.');
       if(old&&!Object.hasOwn(payload,'guestCount'))e.guestCount=old.guestCount;
       if (old && !['cotizacion', 'reservado'].includes(old.status)) fail('Solo puedes editar cotizaciones o reservas.');
       if (!['cotizacion', 'reservado'].includes(e.status)) fail('Usa los botones de salida y devolucion para cambiar de estado.');
@@ -366,6 +527,8 @@
         movement(d,'evento-creado',null,0,`Evento creado. Estado: ${stateName(e.status)}. Invitados: ${e.guestCount==null?'sin definir':e.guestCount}.`,e,actor);
         e.items.filter(i=>i.external).forEach(i=>movement(d,'alquiler-'+i.external.status,null,0,`${d.items.find(p=>p.id===i.productId)?.name||i.productId}: ${rentalDescription(i.external)}.`,e,actor));
       }
+      if(hasPrice)setContractValue(d,e.id,basePrice,actor);
+      if(payment)appendFinanceRecord(d,'cash',payment,freshFinMeta(actor));
     });
   }
   function rentalDescription(r){return r?`${r.qty} unidades, ${r.status}, proveedor ${r.supplier||'por definir'}, costo total ${r.cost==null?'sin definir':'Bs '+r.cost}, entrega ${r.deliveryDate}, devolucion ${r.returnDate}${r.notes?', nota: '+r.notes:''}`:'sin alquiler';}
@@ -531,6 +694,8 @@
   }):Promise.resolve();
   window.Elianne = { ready,isReady:()=>initialized,saving:()=>saving,get: () => clone(data), today, uid, quantity,ownQty,saveRental, backup: () => {if(!readable)fail('No se pudo leer la base local. No se generara un respaldo vacio.');return { ...clone(data), exportedAt: new Date().toISOString(), application: 'Inventario Elianne' };}, prepareRestore, restore, upsertProduct, deleteProduct, saveExtra, saveEvent, transition, saveReturn, adjust, notify, saveHalls, assignVenue, venueRange, occupiesHall,updateGuests,eventHistory:eventId=>clone(data.movements.filter(m=>m.eventId===eventId)),
     hallConflicts:e=>clone(hallConflicts(data,e)),onVenueDay:(e,key)=>{const span=venueRange(e),start=civilMinute(key);return span.start<start+1440&&start<span.end;},
+    addCategory,categoryKey,categories:()=>[...data.categories],moneyCents:toCents,
+    setContract,addFinanceRecord,addExpenseWithPayment,voidFinance,updateFinanceExpense,financeEvent:eid=>clone(finEvent(data,eid)),financeMonth:(month,hall)=>clone(finMonth(data,month,hall)),
     reserved: (pid, start, end, except) => reserved(data, pid, start, end, except), available: (pid, start, end, except) => available(data, pid, start, end, except), extra: pid => clone(getExtra(data, pid)), active, blocked: () => blocked };
   window.addEventListener('storage', e => { if (e.key === KEY) notify('Los datos cambiaron en otra pestaña. Recarga antes de seguir editando.', true); });
   window.addEventListener('beforeunload',event=>{if(saving){event.preventDefault();event.returnValue='';}});

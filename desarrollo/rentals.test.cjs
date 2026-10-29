@@ -17,7 +17,7 @@ function receive(api){api.saveRental('e1','p1',{supplier:'Alquileres Rosa',cost:
 test('old records migrate without inventing rentals; schema protects external data from old writers',()=>{
  const {api}=fixture(100);api.saveEvent({...event(api),items:[{productId:'p1',qty:100}]});
  assert.equal(record(api).items[0].external,null);assert.equal(api.ownQty(record(api).items[0]),100);
- const old=api.backup();old.schemaVersion=3;assert.equal(api.prepareRestore(old).schemaVersion,4);
+ const old=api.backup();old.schemaVersion=3;assert.equal(api.prepareRestore(old).schemaVersion,6);
 });
 test('pending rental covers explicit shortage and never increases owned inventory',()=>{
  const {api}=fixture();api.saveEvent(event(api));assert.equal(api.available('p1'),0);assert.equal(api.reserved('p1'),70);assert.equal(api.get().items[0].qty,70);
